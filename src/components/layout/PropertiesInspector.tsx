@@ -34,6 +34,9 @@ import {
   ChevronsUp,
   ChevronsDown,
   Zap,
+  Monitor,
+  Tablet,
+  Smartphone,
 } from 'lucide-react';
 
 interface PropertiesInspectorProps {
@@ -324,6 +327,92 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                   </div>
                 </div>
               )}
+            </Section>
+
+            {/* Responsive Visibility & Sizing */}
+            <Section title="Responsive Visibility & Sizing" theme={theme}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>
+                    Show On Devices
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                    {(
+                      [
+                        { key: 'desktop', label: 'Desktop', icon: Monitor },
+                        { key: 'tablet', label: 'Tablet', icon: Tablet },
+                        { key: 'mobile', label: 'Mobile', icon: Smartphone },
+                      ] as const
+                    ).map(({ key, label, icon: Icon }) => {
+                      const isVisible = single.responsiveVisibility?.[key] !== false;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            const current = single.responsiveVisibility || { desktop: true, tablet: true, mobile: true };
+                            onUpdateElement(single.id, {
+                              responsiveVisibility: {
+                                ...current,
+                                [key]: !isVisible,
+                              },
+                            });
+                          }}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '6px 4px',
+                            borderRadius: 6,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            backgroundColor: isVisible ? '#172554' : theme.surfaceBg,
+                            border: isVisible ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
+                            color: isVisible ? '#60a5fa' : theme.textMuted,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <Icon size={14} />
+                          <span>{label}</span>
+                          <span style={{ fontSize: 9, opacity: 0.8 }}>
+                            {isVisible ? 'Visible' : 'Hidden'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>
+                    Responsive Width
+                  </div>
+                  <select
+                    value={single.responsiveWidth || 'fixed'}
+                    onChange={(e) =>
+                      onUpdateElement(single.id, {
+                        responsiveWidth: e.target.value as 'fixed' | 'fill' | 'hug',
+                      })
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      backgroundColor: theme.surfaceBg,
+                      border: `1px solid ${theme.borderSubtle}`,
+                      color: theme.textMain,
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="fixed">Fixed Size ({Math.round(single.width)}px)</option>
+                    <option value="fill">Fill Container Width (100%)</option>
+                    <option value="hug">Hug Content (Auto)</option>
+                  </select>
+                </div>
+              </div>
             </Section>
 
             {/* Image Asset Controls when type === 'image' */}

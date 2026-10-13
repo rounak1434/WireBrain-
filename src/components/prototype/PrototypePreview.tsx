@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Board, CanvasElement, Connector, SimulationScenario, SimulationStep } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import {
@@ -6,6 +6,9 @@ import {
   X,
   RotateCcw,
   Smartphone,
+  Tablet,
+  Monitor,
+  RotateCw,
   Layout,
   CheckCircle,
   ZoomIn,
@@ -45,6 +48,13 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'focused' | 'canvas'>('focused');
   const [zoom, setZoom] = useState(1);
+  type ViewportPreset = 'desktop' | 'tablet' | 'mobile' | 'frame';
+  const [viewportPreset, setViewportPreset] = useState<ViewportPreset>(() => {
+    if (board.elements.some((el) => el.type === 'frame-mobile')) return 'mobile';
+    return 'desktop';
+  });
+  const [isLandscape, setIsLandscape] = useState<boolean>(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const displayedBoard = allBoards.find((b) => b.id === currentBoardId) || board;
 
@@ -65,6 +75,39 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
   const activeFrame = useMemo(() => {
     return frames.find((f) => f.id === activeFrameId) || frames[0] || null;
   }, [frames, activeFrameId]);
+
+  useEffect(() => {
+    if (activeFrame) {
+      if (activeFrame.type === 'frame-mobile') {
+        setViewportPreset('mobile');
+      } else if (activeFrame.type === 'frame-desktop') {
+        setViewportPreset('desktop');
+      }
+    }
+  }, [activeFrame?.id]);
+
+  const viewportDimensions = useMemo(() => {
+    if (viewportPreset === 'frame' && activeFrame) {
+      return { width: activeFrame.width, height: activeFrame.height, name: 'Frame Native' };
+    }
+    if (viewportPreset === 'mobile') {
+      return isLandscape
+        ? { width: 812, height: 375, name: 'Mobile Landscape' }
+        : { width: 375, height: 812, name: 'Mobile' };
+    }
+    if (viewportPreset === 'tablet') {
+      return isLandscape
+        ? { width: 1024, height: 768, name: 'Tablet Landscape' }
+        : { width: 768, height: 1024, name: 'Tablet' };
+    }
+    return { width: 1280, height: 800, name: 'Desktop' };
+  }, [viewportPreset, isLandscape, activeFrame]);
+
+  const canvasBounds = useMemo(() => {
+    const maxX = Math.max(...displayedBoard.elements.map((e) => e.x + e.width), 900) + 60;
+    const maxY = Math.max(...displayedBoard.elements.map((e) => e.y + e.height), 600) + 60;
+    return { width: maxX, height: maxY };
+  }, [displayedBoard.elements]);
 
   // Elements belonging to the active frame (with robust boundary matching)
   const focusedElements = useMemo(() => {
@@ -93,6 +136,18 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
       return centerInFrame || boundsOverlap;
     });
   }, [displayedBoard.elements, activeFrame]);
+
+  // Elements filtered by responsive visibility for current viewport
+  const responsiveFilteredElements = useMemo(() => {
+    return focusedElements.filter((el) => {
+      if (el.hidden) return false;
+      if (!el.responsiveVisibility) return true;
+      if (viewportPreset === 'desktop') return el.responsiveVisibility.desktop !== false;
+      if (viewportPreset === 'tablet') return el.responsiveVisibility.tablet !== false;
+      if (viewportPreset === 'mobile') return el.responsiveVisibility.mobile !== false;
+      return true;
+    });
+  }, [focusedElements, viewportPreset]);
 
   // Map elements for connector rendering
   const elementsById = useMemo(() => {
@@ -259,8 +314,100 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
     }, 2500);
   };
 
-  const handleFitScreen = () => {
-    setZoom(1);
+  const handleFitScreen = useCallback(() => {
+    if (!previewContainerRef.current) {
+      setZoom(1);
+      return;
+    }
+    const container = previewContainerRef.current;
+    const availW = container.clientWidth - 80;
+    const availH = container.clientHeight - 80;
+    if (availW <= 0 || availH <= 0) {
+      setZoom(1);
+      return;
+    }
+    const targetW =
+      viewMode === 'canvas'
+        ? canvasBounds.width
+        : viewportDimensions.width + (viewportPreset === 'mobile' ? 16 : viewportPreset === 'tablet' ? 20 : 0);
+    const targetH =
+      viewMode === 'canvas'
+        ? canvasBounds.height
+        : viewportDimensions.height + (viewportPreset === 'desktop' ? 34 : viewportPreset === 'mobile' ? 16 : 20);
+    const fitZoom = Math.min(availW / targetW, availH / targetH, 1.0);
+    setZoom(Math.max(0.25, Number(fitZoom.toFixed(2))));
+  }, [viewMode, canvasBounds, viewportDimensions, viewportPreset]);
+
+  // Automatically recalculate fit-to-view when changing preset or orientation
+  useEffect(() => {
+    const t = setTimeout(() => {
+      handleFitScreen();
+    }, 60);
+    return () => clearTimeout(t);
+  }, [viewportPreset, isLandscape, viewMode, handleFitScreen]);
+
+  // Render child elements on screen surface
+  const renderScreenElements = () => {
+    const baseOffsetX = activeFrame
+      ? activeFrame.x
+      : displayedBoard.elements.length > 0
+      ? Math.min(...displayedBoard.elements.map((e) => e.x))
+      : 0;
+    const baseOffsetY = activeFrame
+      ? activeFrame.y
+      : displayedBoard.elements.length > 0
+      ? Math.min(...displayedBoard.elements.map((e) => e.y))
+      : 0;
+
+    return responsiveFilteredElements.map((el) => {
+      // Don't render the root frame rectangle itself as an inner element
+      if (activeFrame && el.id === activeFrame.id) return null;
+
+      const isInteractive = el.type === 'button' || Boolean(el.prototypeAction);
+      const isStepActive =
+        currentStep?.sourceNodeId === el.id || currentStep?.targetNodeId === el.id;
+
+      // Compute offset relative to active frame or board bounds
+      const relX = el.x - baseOffsetX;
+      const relY = el.y - baseOffsetY;
+
+      // Responsive width fill
+      const renderedWidth =
+        el.responsiveWidth === 'fill'
+          ? Math.max(el.width, viewportDimensions.width - Math.max(0, relX) * 2)
+          : el.width;
+
+      const adaptedElement =
+        renderedWidth !== el.width ? { ...el, width: renderedWidth } : el;
+
+      return (
+        <div
+          key={el.id}
+          onClick={() => handleElementClick(el)}
+          style={{
+            position: 'absolute',
+            left: relX,
+            top: relY,
+            width: renderedWidth,
+            height: el.height,
+            cursor: isInteractive ? 'pointer' : 'default',
+            zIndex: 2,
+            transition: 'transform 0.1s ease, box-shadow 0.2s ease',
+            boxShadow: isStepActive ? '0 0 18px rgba(56, 189, 248, 0.75)' : 'none',
+            outline: isStepActive ? '2px solid #38bdf8' : 'none',
+            borderRadius: el.cornerRadius || 4,
+          }}
+          onMouseEnter={(e) => {
+            if (isInteractive) e.currentTarget.style.transform = 'scale(0.99)';
+          }}
+          onMouseLeave={(e) => {
+            if (isInteractive) e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          <ElementRenderer element={adaptedElement} isSelected={false} />
+        </div>
+      );
+    });
   };
 
   return (
@@ -392,6 +539,104 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
               >
                 All Screens Flow
               </button>
+            </div>
+          )}
+
+          {/* Viewport Presets & Responsive Controls */}
+          {viewMode === 'focused' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: '#0d1017',
+                padding: '3px 6px',
+                borderRadius: 6,
+                border: '1px solid #1c2230',
+              }}
+            >
+              {(
+                [
+                  { id: 'desktop' as const, label: 'Desktop', icon: Monitor },
+                  { id: 'tablet' as const, label: 'Tablet', icon: Tablet },
+                  { id: 'mobile' as const, label: 'Mobile', icon: Smartphone },
+                ]
+              ).map(({ id, label, icon: Icon }) => {
+                const isActive = viewportPreset === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setViewportPreset(id)}
+                    title={`Switch to ${label} Viewport Preset`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: 'none',
+                      backgroundColor: isActive ? '#172554' : 'transparent',
+                      color: isActive ? '#60a5fa' : '#7f8ea3',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Icon size={12} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+
+              {/* Orientation Toggle for Mobile/Tablet */}
+              {(viewportPreset === 'mobile' || viewportPreset === 'tablet') && (
+                <>
+                  <div style={{ width: 1, height: 16, backgroundColor: '#202636', margin: '0 2px' }} />
+                  <button
+                    type="button"
+                    onClick={() => setIsLandscape((prev) => !prev)}
+                    title={`Toggle Orientation: Currently ${isLandscape ? 'Landscape' : 'Portrait'}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '3px 6px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: 'none',
+                      backgroundColor: isLandscape ? '#1e293b' : 'transparent',
+                      color: isLandscape ? '#38bdf8' : '#7f8ea3',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <RotateCw size={12} />
+                    <span>{isLandscape ? 'Landscape' : 'Portrait'}</span>
+                  </button>
+                </>
+              )}
+
+              <div style={{ width: 1, height: 16, backgroundColor: '#202636', margin: '0 2px' }} />
+
+              {/* Viewport Dimensions Badge */}
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  color: '#94a3b8',
+                  padding: '2px 6px',
+                  backgroundColor: '#11151f',
+                  borderRadius: 4,
+                  border: '1px solid #232938',
+                  whiteSpace: 'nowrap',
+                }}
+                title="Current Viewport Resolution"
+              >
+                {viewportDimensions.width} × {viewportDimensions.height} px
+              </div>
             </div>
           )}
 
@@ -561,6 +806,28 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
           <button
             type="button"
             onClick={handleFitScreen}
+            title="Fit to Viewport (Auto Zoom)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '5px 8px',
+              backgroundColor: '#172554',
+              border: '1px solid #1d4ed8',
+              borderRadius: 5,
+              color: '#60a5fa',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Maximize2 size={12} />
+            <span>Fit</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
             title="Reset Zoom to 100%"
             style={{
               padding: '5px 8px',
@@ -602,6 +869,7 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
 
       {/* Main Preview Viewport */}
       <div
+        ref={previewContainerRef}
         style={{
           flex: 1,
           display: 'flex',
@@ -619,58 +887,222 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
             transition: 'transform 0.15s ease',
           }}
         >
-          {/* FOCUSED SCREEN VIEW (Single Frame mode) */}
-          {viewMode === 'focused' && activeFrame ? (
-            <div
-              style={{
-                position: 'relative',
-                width: activeFrame.width,
-                height: activeFrame.height,
-                boxShadow: '0 24px 72px rgba(0,0,0,0.85), 0 0 1px rgba(255,255,255,0.1)',
-                borderRadius: activeFrame.cornerRadius || (activeFrame.type === 'frame-mobile' ? 36 : 12),
-                overflow: 'hidden',
-                backgroundColor: activeFrame.fillColor || '#07090e',
-              }}
-            >
-              {focusedElements.map((el) => {
-                if (el.hidden) return null;
-                const isInteractive = el.type === 'button' || Boolean(el.prototypeAction);
-                const isStepActive =
-                  currentStep?.sourceNodeId === el.id || currentStep?.targetNodeId === el.id;
-
-                // Compute offset relative to active frame
-                const relX = el.id === activeFrame.id ? 0 : el.x - activeFrame.x;
-                const relY = el.id === activeFrame.id ? 0 : el.y - activeFrame.y;
-
-                return (
+          {/* FOCUSED SCREEN VIEW (Device Chassis Mode) */}
+          {viewMode === 'focused' ? (
+            viewportPreset === 'mobile' ? (
+              <div
+                style={{
+                  position: 'relative',
+                  width: viewportDimensions.width + 16,
+                  height: viewportDimensions.height + 16,
+                  padding: 8,
+                  borderRadius: 44,
+                  backgroundColor: '#0c0e14',
+                  border: '3px solid #232a3b',
+                  boxShadow: '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxSizing: 'content-box',
+                }}
+              >
+                {/* Dynamic Island Pill */}
+                {!isLandscape && (
                   <div
-                    key={el.id}
-                    onClick={() => handleElementClick(el)}
                     style={{
                       position: 'absolute',
-                      left: relX,
-                      top: relY,
-                      width: el.width,
-                      height: el.height,
-                      cursor: isInteractive ? 'pointer' : 'default',
-                      zIndex: el.id === activeFrame.id ? 1 : 2,
-                      transition: 'transform 0.1s ease, box-shadow 0.2s ease',
-                      boxShadow: isStepActive ? '0 0 18px rgba(56, 189, 248, 0.75)' : 'none',
-                      outline: isStepActive ? '2px solid #38bdf8' : 'none',
-                      borderRadius: el.cornerRadius || 4,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (isInteractive) e.currentTarget.style.transform = 'scale(0.99)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (isInteractive) e.currentTarget.style.transform = 'scale(1)';
+                      top: 14,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 104,
+                      height: 22,
+                      borderRadius: 18,
+                      backgroundColor: '#000000',
+                      zIndex: 50,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      paddingRight: 8,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
+                      pointerEvents: 'none',
                     }}
                   >
-                    <ElementRenderer element={el} isSelected={false} />
+                    <div
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: 4,
+                        backgroundColor: '#131b2e',
+                        border: '1px solid #1e293b',
+                      }}
+                    />
                   </div>
-                );
-              })}
-            </div>
+                )}
+
+                {/* Mobile Screen Surface */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: viewportDimensions.width,
+                    height: viewportDimensions.height,
+                    borderRadius: 36,
+                    overflow: 'hidden',
+                    backgroundColor: activeFrame?.fillColor || '#07090e',
+                    flex: 1,
+                  }}
+                >
+                  {renderScreenElements()}
+                  {/* Home Indicator */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 8,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 110,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: 'rgba(255, 255, 255, 0.35)',
+                      zIndex: 40,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+            ) : viewportPreset === 'tablet' ? (
+              <div
+                style={{
+                  position: 'relative',
+                  width: viewportDimensions.width + 20,
+                  height: viewportDimensions.height + 20,
+                  padding: 10,
+                  borderRadius: 28,
+                  backgroundColor: '#0c0e14',
+                  border: '3px solid #232a3b',
+                  boxShadow: '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxSizing: 'content-box',
+                }}
+              >
+                {/* Tablet Camera Bezel */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 5,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: '#1e293b',
+                    zIndex: 50,
+                  }}
+                />
+                {/* Tablet Screen Surface */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: viewportDimensions.width,
+                    height: viewportDimensions.height,
+                    borderRadius: 18,
+                    overflow: 'hidden',
+                    backgroundColor: activeFrame?.fillColor || '#07090e',
+                    flex: 1,
+                  }}
+                >
+                  {renderScreenElements()}
+                </div>
+              </div>
+            ) : viewportPreset === 'desktop' ? (
+              <div
+                style={{
+                  position: 'relative',
+                  width: viewportDimensions.width,
+                  height: viewportDimensions.height + 34,
+                  borderRadius: 10,
+                  backgroundColor: '#0c0e14',
+                  border: '1px solid #1e2638',
+                  boxShadow: '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Browser Header Bar */}
+                <div
+                  style={{
+                    height: 34,
+                    backgroundColor: '#10141d',
+                    borderBottom: '1px solid #1a2233',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 12px',
+                    gap: 12,
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* Traffic Lights */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444' }} />
+                    <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#f59e0b' }} />
+                    <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981' }} />
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      maxWidth: 400,
+                      margin: '0 auto',
+                      height: 22,
+                      backgroundColor: '#090b10',
+                      borderRadius: 4,
+                      border: '1px solid #1c2436',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 10px',
+                      fontSize: 11,
+                      color: '#64748b',
+                      fontWeight: 500,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span>
+                      https://wirebrain.internal/{displayedBoard.title.toLowerCase().replace(/\s+/g, '-')}
+                    </span>
+                  </div>
+                </div>
+                {/* Desktop Screen Surface */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: viewportDimensions.width,
+                    height: viewportDimensions.height,
+                    overflow: 'hidden',
+                    backgroundColor: activeFrame?.fillColor || '#07090e',
+                    flex: 1,
+                  }}
+                >
+                  {renderScreenElements()}
+                </div>
+              </div>
+            ) : (
+              /* Frame Native Mode */
+              <div
+                style={{
+                  position: 'relative',
+                  width: activeFrame ? activeFrame.width : viewportDimensions.width,
+                  height: activeFrame ? activeFrame.height : viewportDimensions.height,
+                  boxShadow: '0 24px 72px rgba(0,0,0,0.85), 0 0 1px rgba(255,255,255,0.1)',
+                  borderRadius: activeFrame?.cornerRadius || 12,
+                  overflow: 'hidden',
+                  backgroundColor: activeFrame?.fillColor || '#07090e',
+                }}
+              >
+                {renderScreenElements()}
+              </div>
+            )
           ) : (
             /* ALL SCREENS / FULL CANVAS FLOW VIEW (with connectors) */
             <div
