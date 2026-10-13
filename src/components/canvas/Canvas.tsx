@@ -416,6 +416,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
+    e.stopPropagation();
+
     if (toolMode === 'connector') {
       onSelectElements([el.id]);
       onSelectConnector(null);
