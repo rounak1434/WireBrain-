@@ -435,46 +435,147 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
     ];
   }
 
-  // 4. Mobile Banking App
-  if (bId.includes('mobile') || bTitle.includes('mobile')) {
+  // 4. Mobile App: Starter Board (Mobile Ops Dashboard)
+  if (bId === 'board-mobile' || (bId.includes('mobile') && board.elements.some((e) => e.id === 'mob-frame-1'))) {
     return [
       {
-        id: 'scenario-mobile-auth',
-        title: 'Biometric FaceID & Secure Dashboard Entry',
-        description: 'User unlocks mobile app with FaceID, fetches account balances, and loads quick actions.',
+        id: 'scenario-mobile-ops',
+        title: 'Ops Diagnostics & Telemetry Navigation Flow',
+        description: 'User triggers automated diagnostics from Ops Dashboard, reviews live cluster telemetry, and returns to main view.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'mob-action-btn',
+            targetNodeId: 'mob-frame-2',
+            connectorId: 'mob-conn-1',
+            title: 'Trigger Diagnostics Suite',
+            description: "User taps '+ Trigger Automated Diagnostics' on Ops Dashboard, transitioning to the Diagnostics & Telemetry screen.",
+            protocol: 'Prototype Navigation Action',
+            payload: 'Navigate: mob-frame-2 (Diagnostics & Telemetry)',
+            response: 'Rendered Diagnostics & Telemetry Screen',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'mob-2-rerun-btn',
+            targetNodeId: 'mob-2-status-card',
+            title: 'Live Health Checks Verification',
+            description: 'Diagnostic suite checks TLS handshake, Kafka message buffer, and Redis cluster replication.',
+            protocol: 'Diagnostics Probe',
+            payload: '4 regional clusters evaluated',
+            response: '100% Nominal · 0 errors',
+          },
+          {
+            stepNumber: 3,
+            sourceNodeId: 'mob-2-back-btn',
+            targetNodeId: 'mob-frame-1',
+            connectorId: 'mob-conn-2',
+            title: 'Return to Ops Dashboard',
+            description: "User taps '← Back' to return to the main System Health Monitor dashboard.",
+            protocol: 'Prototype Navigation Back',
+            payload: 'Navigate: mob-frame-1 (Ops Dashboard)',
+            response: 'Restored Ops Dashboard',
+          },
+        ],
+      },
+    ];
+  }
+
+  // 5. Mobile App: Fintech Wallet Example
+  if (bId === 'board-example-mobile' || bId.includes('mobile') || bTitle.includes('mobile') || bTitle.includes('wallet')) {
+    return [
+      {
+        id: 'scenario-mobile-wallet',
+        title: 'Biometric Login & Wallet Dashboard Flow',
+        description: 'User authenticates with FaceID on Screen 1, navigates to Wallet Dashboard, triggers Send modal, and locks session.',
         steps: [
           {
             stepNumber: 1,
             sourceNodeId: 'mob-1-login-btn',
-            targetNodeId: 'mob-2-balance-card',
+            targetNodeId: 'mob-screen-2',
             connectorId: 'conn-mob-login-dash',
-            title: 'Biometric Handshake',
-            description: 'Secure Enclave authenticates user biometric key and exchanges for short-lived session token.',
-            protocol: 'Apple Secure Enclave / Android Keystore',
-            payload: 'FaceID Verified; Issue JWT',
-            response: 'Access Granted: user_7721',
+            title: 'Biometric FaceID Login Handshake',
+            description: 'User authenticates with FaceID on Screen 1 and navigates to Screen 2: Wallet Dashboard.',
+            protocol: 'Biometric Auth Event',
+            payload: 'FaceID Verified; Session JWT issued',
+            response: 'Transitioned to Screen 2: Wallet Dashboard',
           },
           {
             stepNumber: 2,
-            sourceNodeId: 'mob-2-send-btn',
-            targetNodeId: 'mob-3-amount-input',
-            connectorId: 'conn-mob-dash-transfer',
-            title: 'Initiate Transfer Flow',
-            description: 'User taps Quick Transfer button to open recipient selection sheet.',
-            protocol: 'Client Navigation Event',
-            payload: 'Route: /transfer/new { contact: "Sarah Jenkins" }',
-            response: 'View Rendered',
+            sourceNodeId: 'mob-2-action-send',
+            targetNodeId: 'mob-screen-2',
+            title: 'Trigger Send Transfer Modal',
+            description: "User taps '↑ Send' action button, opening the peer-to-peer transfer sheet.",
+            protocol: 'Prototype Modal Action',
+            payload: 'Open modal: Send Cryptocurrency / Fiat Transfer Sheet',
+            response: 'Transfer sheet modal displayed',
           },
           {
             stepNumber: 3,
-            sourceNodeId: 'mob-3-confirm-btn',
-            targetNodeId: 'mob-2-activity-list',
-            connectorId: 'conn-mob-transfer-done',
-            title: 'Execute Payment & Update Activity Feed',
-            description: 'Core banking backend executes instant settlement and updates live ledger feed.',
-            protocol: 'ISO 20022 Fast Payment API',
-            payload: 'POST /transfer { amount: 350.00, currency: "USD" }',
-            response: 'Settlement Confirmed (Tx #98214)',
+            sourceNodeId: 'mob-2-lock-btn',
+            targetNodeId: 'mob-screen-1',
+            connectorId: 'conn-mob-lock-login',
+            title: 'Lock Session & Sign Out',
+            description: "User taps '← Lock' button to secure the wallet and return to the biometric authentication screen.",
+            protocol: 'Session Termination',
+            payload: 'Clear session token; Return to /login',
+            response: 'Returned to Screen 1: Biometric Login',
+          },
+        ],
+      },
+    ];
+  }
+
+  // 6. Website Wireframes (Starter and Example)
+  if (bId.includes('website') || bTitle.includes('website')) {
+    const hasHeroPricing = board.elements.some((e) => e.id === 'web-hero-cta' && board.elements.some((el) => el.id === 'web-pricing-btn'));
+    if (hasHeroPricing) {
+      return [
+        {
+          id: 'scenario-website-checkout',
+          title: 'SaaS Marketing & Checkout Flow',
+          description: 'Visitor navigates from hero CTA down to pricing banner and opens the interactive workspace checkout modal.',
+          steps: [
+            {
+              stepNumber: 1,
+              sourceNodeId: 'web-hero-cta',
+              targetNodeId: 'web-pricing-btn',
+              connectorId: 'conn-web-cta-pricing',
+              title: 'Hero CTA Navigation',
+              description: "Visitor clicks 'Start Building Free' hero CTA, directing focus to the pricing tier banner.",
+              protocol: 'Smooth Scroll Anchor',
+              payload: 'ScrollTarget: #pricing-section',
+              response: 'Pricing Banner in view',
+            },
+            {
+              stepNumber: 2,
+              sourceNodeId: 'web-pricing-btn',
+              targetNodeId: 'web-frame-1',
+              title: 'Open Interactive Checkout Modal',
+              description: "User clicks 'Start Free Project' button, opening the checkout dialog sheet.",
+              protocol: 'Prototype Modal Action',
+              payload: 'Open modal: New Architecture Workspace Modal',
+              response: 'Checkout dialog displayed',
+            },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        id: 'scenario-website-workspace',
+        title: 'Landing Page Workspace Modal Flow',
+        description: 'Visitor clicks primary CTA on landing page to open the workspace modal sheet.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'web-hero-btn1',
+            targetNodeId: 'web-frame-1',
+            title: 'Hero CTA Interaction',
+            description: "Visitor clicks 'Create Workspace' on the desktop landing page.",
+            protocol: 'Prototype Modal Action',
+            payload: 'Open modal: Create Architecture Workspace Modal',
+            response: 'Modal sheet active',
           },
         ],
       },
@@ -490,11 +591,27 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
  */
 function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
   const elementsById = new Map<string, CanvasElement>(board.elements.map((el) => [el.id, el]));
+  const hasFrames = board.elements.some((e) => e.type.startsWith('frame'));
 
-  // Valid connectors connecting existing elements
-  const validConnectors = board.connectors.filter(
-    (c) => elementsById.has(c.fromId) && elementsById.has(c.toId)
-  );
+  function isAnnotationElement(el: CanvasElement): boolean {
+    const l = (el.label || '').toLowerCase();
+    return (
+      el.type === 'text' ||
+      l.includes('spec') ||
+      l.includes('annotation') ||
+      l.includes('note') ||
+      l.includes('legend')
+    );
+  }
+
+  // Valid connectors connecting existing elements (excluding connectors pointing into annotation notes when frames exist)
+  const validConnectors = board.connectors.filter((c) => {
+    const fromEl = elementsById.get(c.fromId);
+    const toEl = elementsById.get(c.toId);
+    if (!fromEl || !toEl) return false;
+    if (hasFrames && isAnnotationElement(toEl)) return false;
+    return true;
+  });
 
   if (validConnectors.length === 0) {
     return [];
@@ -604,7 +721,12 @@ function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
       return el?.type === 'diamond' || (st.connector.label && ['yes', 'no', 'true', 'false', 'approved', 'rejected'].includes(st.connector.label.toLowerCase()));
     });
 
-    let scenarioTitle = `Flow: ${startLabel} → ${endLabel}`;
+    const isWireframeHop = hasFrames && (firstEl?.type.startsWith('frame') || lastEl?.type.startsWith('frame') || firstEl?.type === 'button');
+
+    let scenarioTitle = isWireframeHop
+      ? `Screen Flow: ${startLabel} → ${endLabel}`
+      : `Flow: ${startLabel} → ${endLabel}`;
+
     if (decisionStep && decisionStep.connector.label) {
       scenarioTitle = `Branch [${decisionStep.connector.label}]: ${startLabel} → ${endLabel}`;
     }
@@ -613,6 +735,7 @@ function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
       const fromEl = elementsById.get(st.fromId)!;
       const toEl = elementsById.get(st.toId)!;
       const isDecision = fromEl.type === 'diamond';
+      const stepIsWireframe = hasFrames && (fromEl.type.startsWith('frame') || toEl.type.startsWith('frame') || fromEl.type === 'button');
 
       return {
         stepNumber: sIdx + 1,
@@ -621,13 +744,17 @@ function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
         connectorId: st.connector.id,
         title: st.connector.label
           ? `${fromEl.label || 'Node'} → ${toEl.label || 'Node'} (${st.connector.label})`
+          : stepIsWireframe
+          ? `Screen Transition: ${fromEl.label || 'Screen'} → ${toEl.label || 'Screen'}`
           : `Hop ${sIdx + 1}: ${fromEl.label || 'Node'} → ${toEl.label || 'Node'}`,
         description: isDecision
           ? `Evaluating conditional branch "${fromEl.label || 'Decision'}". Route selected: ${st.connector.label || 'next transition'}.`
+          : stepIsWireframe
+          ? `Interactive prototype navigation from "${fromEl.label || 'Screen'}" to "${toEl.label || 'Screen'}".`
           : `Dispatched message from "${fromEl.label || 'Node'}" to "${toEl.label || 'Node'}".`,
-        protocol: st.connector.label || (fromEl.type === 'database' ? 'SQL / TCP' : fromEl.type === 'service' ? 'gRPC / HTTP' : 'Direct Link'),
-        payload: `Event dispatched from ${fromEl.label || 'Source'}`,
-        response: `Acknowledged by ${toEl.label || 'Target'}`,
+        protocol: st.connector.label || (stepIsWireframe ? 'UI Prototype Navigation' : fromEl.type === 'database' ? 'SQL / TCP' : fromEl.type === 'service' ? 'gRPC / HTTP' : 'Direct Link'),
+        payload: stepIsWireframe ? `Transition to ${toEl.label || 'Target Screen'}` : `Event dispatched from ${fromEl.label || 'Source'}`,
+        response: stepIsWireframe ? `Rendered ${toEl.label || 'Target Screen'}` : `Acknowledged by ${toEl.label || 'Target'}`,
         decisionCondition: isDecision ? fromEl.label : undefined,
         decisionOutcome: isDecision ? (st.connector.label || 'Condition Met') : undefined,
       };
@@ -636,7 +763,9 @@ function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
     dynamicScenarios.push({
       id: `scenario-dynamic-${pIdx + 1}`,
       title: scenarioTitle,
-      description: `Step-by-step route traversal through ${path.length} connection transitions on canvas.`,
+      description: isWireframeHop
+        ? `Prototype screen transition through ${path.length} connection transitions on canvas.`
+        : `Step-by-step route traversal through ${path.length} connection transitions on canvas.`,
       steps,
     });
   }
