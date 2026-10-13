@@ -481,96 +481,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
             minHeight: 380,
           }}
         >
-          {/* Continuous Signature Connector Spine (SVG Vector Layer) */}
-          <svg
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              zIndex: 3,
-            }}
-          >
-            <defs>
-              <linearGradient id="intro-spine-glow" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="#60a5fa" stopOpacity="1" />
-              </linearGradient>
-              <filter id="intro-glow">
-                <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#3b82f6" floodOpacity="0.8" />
-              </filter>
-            </defs>
 
-            {/* In Scene 2 & 3 & 4: Unrolling spine connecting desktop wireframe button to API Gateway */}
-            {progress >= 0.8 && (
-              <g opacity={Math.min(1, (progress - 0.8) * 2)}>
-                <path
-                  d="M 390 236 L 460 236 L 460 190 L 530 190"
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="2"
-                  strokeDasharray={progress < 2.5 ? 'none' : 'none'}
-                />
-                <circle cx="390" cy="236" r="4" fill="#3b82f6" />
-                <circle cx="530" cy="190" r="4" fill="#3b82f6" />
-
-                {/* Branch to Microservice & Database */}
-                {progress >= 1.7 && (
-                  <g opacity={Math.min(1, (progress - 1.7) * 2)}>
-                    {/* Path from API Gateway to Auth Microservice */}
-                    <path
-                      d="M 670 170 L 720 170"
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                    />
-                    {/* Path from Auth Service to PostgreSQL */}
-                    <path
-                      d="M 850 170 L 890 170"
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                    />
-                    {/* Path from API Gateway down to Event Bus */}
-                    <path
-                      d="M 600 230 L 600 280 L 720 280"
-                      fill="none"
-                      stroke="#818cf8"
-                      strokeWidth="2"
-                      strokeDasharray="4 4"
-                    />
-                  </g>
-                )}
-
-                {/* Scene 4: Travelling Glowing Simulation Token */}
-                {progress >= 2.5 && isSimRunning && (
-                  <g filter="url(#intro-glow)">
-                    {simStep === 0 && (
-                      <circle cx="390" cy="236" r="6" fill="#60a5fa">
-                        <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                    {simStep === 1 && (
-                      <circle cx="600" cy="190" r="6" fill="#60a5fa">
-                        <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                    {simStep === 2 && (
-                      <circle cx="785" cy="170" r="6" fill="#60a5fa">
-                        <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                    {simStep === 3 && (
-                      <circle cx="945" cy="170" r="6" fill="#60a5fa">
-                        <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                  </g>
-                )}
-              </g>
-            )}
-          </svg>
 
           {/* ========================================================
               SCENE 0: THE BLANK CANVAS (Drafting crosshairs & guides)
@@ -992,34 +903,152 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           >
             <div
               style={{
-                width: 900,
-                height: 340,
+                width: 920,
+                maxWidth: '100%',
+                height: 350,
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
               }}
             >
-              {/* Left: Client UI Trigger Box */}
+              {/* Internal SVG Connectors (Same coordinate space as cards, zIndex 0 behind cards) */}
+              <svg
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+                viewBox="0 0 920 350"
+              >
+                <defs>
+                  {/* Arrowhead Markers */}
+                  <marker id="topo-arrow-blue" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <polygon points="0 0, 7 3.5, 0 7" fill="#3b82f6" />
+                  </marker>
+                  <marker id="topo-arrow-purple" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <polygon points="0 0, 7 3.5, 0 7" fill="#818cf8" />
+                  </marker>
+                  <marker id="topo-arrow-amber" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <polygon points="0 0, 7 3.5, 0 7" fill="#fbbf24" />
+                  </marker>
+                  <filter id="topo-glow">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#60a5fa" floodOpacity="0.9" />
+                  </filter>
+                </defs>
+
+                {/* 1. Client Viewport -> API Gateway */}
+                <path
+                  d="M 220 160 L 310 160"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  markerEnd="url(#topo-arrow-blue)"
+                />
+                <text x="265" y="148" fill="#94a3b8" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="500">
+                  POST /auth
+                </text>
+
+                {/* 2. API Gateway -> Auth Microservice (Orthogonal) */}
+                <path
+                  d="M 480 120 L 510 120 L 510 80 L 540 80"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  markerEnd="url(#topo-arrow-blue)"
+                />
+                <text x="510" y="68" fill="#94a3b8" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="500">
+                  Verify JWT
+                </text>
+
+                {/* 3. Auth Microservice -> PostgreSQL Cluster */}
+                <path
+                  d="M 700 80 L 745 80"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  markerEnd="url(#topo-arrow-blue)"
+                />
+                <text x="722" y="68" fill="#38bdf8" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="500">
+                  SQL Query
+                </text>
+
+                {/* 4. API Gateway -> Kafka Event Bus (Orthogonal Dashed) */}
+                <path
+                  d="M 480 200 L 510 200 L 510 240 L 540 240"
+                  fill="none"
+                  stroke="#818cf8"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                  markerEnd="url(#topo-arrow-purple)"
+                />
+                <text x="510" y="228" fill="#a5b4fc" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="500">
+                  Async Event
+                </text>
+
+                {/* 5. Kafka Event Bus -> S3 Storage */}
+                <path
+                  d="M 700 240 L 745 240"
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                  markerEnd="url(#topo-arrow-amber)"
+                />
+                <text x="722" y="228" fill="#fde68a" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="500">
+                  Batch Sink
+                </text>
+
+                {/* Animated Simulation Token along paths in Scene 2 */}
+                {!prefersReducedMotion && (
+                  <g filter="url(#topo-glow)">
+                    {simStep === 0 && (
+                      <circle cx="265" cy="160" r="5" fill="#60a5fa" />
+                    )}
+                    {simStep === 1 && (
+                      <circle cx="510" cy="98" r="5" fill="#60a5fa" />
+                    )}
+                    {simStep === 2 && (
+                      <circle cx="722" cy="80" r="5" fill="#60a5fa" />
+                    )}
+                    {simStep === 3 && (
+                      <>
+                        <circle cx="510" cy="222" r="5" fill="#a78bfa" />
+                        <circle cx="722" cy="240" r="5" fill="#fcd34d" />
+                      </>
+                    )}
+                  </g>
+                )}
+              </svg>
+
+              {/* Node 1: Client UI Trigger Box */}
               <div
                 style={{
                   position: 'absolute',
                   left: 20,
-                  top: 90,
+                  top: 105,
                   width: 200,
+                  height: 110,
                   padding: '16px',
                   backgroundColor: '#080a0f',
                   border: '1px solid #1e2638',
                   borderRadius: 10,
                   boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Laptop size={16} color="#3b82f6" />
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>Client Viewport</span>
                 </div>
                 <div
                   style={{
-                    padding: '8px 12px',
+                    padding: '6px 12px',
                     backgroundColor: '#121824',
                     border: '1px solid #232d42',
                     borderRadius: 6,
@@ -1031,30 +1060,35 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                 >
                   Button Clicked
                 </div>
-                <div style={{ marginTop: 8, fontSize: 10, color: '#64748b', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#64748b', textAlign: 'center' }}>
                   POST /api/v1/auth
                 </div>
               </div>
 
-              {/* Middle: API Gateway Node */}
+              {/* Node 2: API Gateway Node */}
               <div
                 style={{
                   position: 'absolute',
                   left: 310,
-                  top: 75,
+                  top: 95,
                   width: 170,
+                  height: 130,
                   padding: '16px',
                   backgroundColor: '#0a0d14',
                   border: '1px solid #2563eb',
                   borderRadius: 10,
                   boxShadow: '0 0 24px rgba(37, 99, 235, 0.25)',
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Server size={16} color="#60a5fa" />
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>API Gateway</span>
                 </div>
-                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6 }}>Envoy Proxy :443</div>
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>Envoy Proxy :443</div>
                 <div
                   style={{
                     fontSize: 10,
@@ -1064,86 +1098,107 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
                     padding: '2px 6px',
                     borderRadius: 3,
                     display: 'inline-block',
+                    alignSelf: 'flex-start',
                   }}
                 >
                   ROUTE MATCHED
                 </div>
               </div>
 
-              {/* Right Top: Auth Microservice */}
+              {/* Node 3: Auth Microservice */}
               <div
                 style={{
                   position: 'absolute',
                   left: 540,
                   top: 40,
                   width: 160,
+                  height: 80,
                   padding: '14px',
                   backgroundColor: '#080a10',
                   border: '1px solid #1e2638',
                   borderRadius: 8,
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <Cpu size={14} color="#a78bfa" />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#f8fafc' }}>Auth Service</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#94a3b8' }}>JWT Signer (Go)</div>
               </div>
 
-              {/* Far Right Top: PostgreSQL Cluster */}
+              {/* Node 4: PostgreSQL Cluster */}
               <div
                 style={{
                   position: 'absolute',
-                  left: 740,
+                  left: 745,
                   top: 40,
-                  width: 150,
+                  width: 155,
+                  height: 80,
                   padding: '14px',
                   backgroundColor: '#080a10',
                   border: '1px solid #1e2638',
                   borderRadius: 8,
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <Database size={14} color="#38bdf8" />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#f8fafc' }}>PostgreSQL</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#94a3b8' }}>User Accounts DB</div>
               </div>
 
-              {/* Right Bottom: Kafka Event Bus */}
+              {/* Node 5: Kafka Event Bus */}
               <div
                 style={{
                   position: 'absolute',
                   left: 540,
-                  top: 190,
+                  top: 200,
                   width: 160,
+                  height: 80,
                   padding: '14px',
                   backgroundColor: '#080a10',
                   border: '1px solid #312e81',
                   borderRadius: 8,
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <Layers size={14} color="#818cf8" />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#f8fafc' }}>Kafka Queue</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#818cf8' }}>user.registered.v1</div>
               </div>
 
-              {/* Far Right Bottom: Cloud S3 Storage */}
+              {/* Node 6: Cloud S3 Storage */}
               <div
                 style={{
                   position: 'absolute',
-                  left: 740,
-                  top: 190,
-                  width: 150,
+                  left: 745,
+                  top: 200,
+                  width: 155,
+                  height: 80,
                   padding: '14px',
                   backgroundColor: '#080a10',
                   border: '1px solid #1e2638',
                   borderRadius: 8,
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <Cloud size={14} color="#fbbf24" />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#f8fafc' }}>S3 Storage</span>
                 </div>
