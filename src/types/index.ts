@@ -43,6 +43,10 @@ export interface CanvasElement {
   prototypeAction?: PrototypeActionType;
   prototypeTarget?: string; // target board ID, frame ID, or modal title
   prototypePayload?: string;
+  groupId?: string;
+  groupName?: string;
+  responsiveVisibility?: { desktop?: boolean; tablet?: boolean; mobile?: boolean };
+  responsiveWidth?: 'fixed' | 'fill' | 'hug';
   customData?: Record<string, any>;
   assetId?: string;
   src?: string;
@@ -78,6 +82,39 @@ export interface ProjectAsset {
   createdAt: number;
 }
 
+export interface ReusableComponentDefinition {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  elements: CanvasElement[];
+  createdAt: number;
+}
+
+export interface DesignTokens {
+  colors: {
+    primary: string;
+    secondary: string;
+    background: string;
+    surface: string;
+    text: string;
+    border: string;
+  };
+  typography: {
+    fontFamily: string;
+    baseFontSize: number;
+  };
+  spacing: {
+    gridSize: number;
+  };
+  borderRadius: {
+    small: number;
+    medium: number;
+    large: number;
+    full: number;
+  };
+}
+
 export interface Board {
   id: string;
   title: string;
@@ -87,6 +124,7 @@ export interface Board {
   createdAt: number;
   updatedAt: number;
   boardType?: 'website' | 'mobile' | 'system' | 'flowchart' | 'custom';
+  viewportPreset?: 'desktop' | 'tablet' | 'mobile' | 'responsive';
 }
 
 export interface Project {
@@ -96,6 +134,8 @@ export interface Project {
   boards: Board[];
   activeBoardId: string;
   assets?: Record<string, ProjectAsset>;
+  reusableComponents?: ReusableComponentDefinition[];
+  designTokens?: DesignTokens;
 }
 
 export type ToolMode =

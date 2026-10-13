@@ -437,12 +437,21 @@ export const Canvas: React.FC<CanvasProps> = ({
       if (nextSelected.includes(el.id)) {
         nextSelected = nextSelected.filter((id) => id !== el.id);
       } else {
-        nextSelected.push(el.id);
+        if (el.groupId) {
+          const groupIds = elements.filter((item) => item.groupId === el.groupId).map((item) => item.id);
+          nextSelected = Array.from(new Set([...nextSelected, ...groupIds]));
+        } else {
+          nextSelected.push(el.id);
+        }
       }
       onSelectElements(nextSelected);
     } else {
       if (!selectedElementIds.includes(el.id)) {
-        nextSelected = [el.id];
+        if (el.groupId) {
+          nextSelected = elements.filter((item) => item.groupId === el.groupId).map((item) => item.id);
+        } else {
+          nextSelected = [el.id];
+        }
         onSelectElements(nextSelected);
       }
     }

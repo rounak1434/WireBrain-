@@ -27,6 +27,13 @@ import {
   Unlock,
   UploadCloud,
   RotateCcw,
+  Group,
+  Ungroup,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUp,
+  ChevronsDown,
+  Zap,
 } from 'lucide-react';
 
 interface PropertiesInspectorProps {
@@ -43,6 +50,9 @@ interface PropertiesInspectorProps {
   onDistributeElements: (direction: 'h' | 'v') => void;
   onUpdateBoardTitle: (title: string) => void;
   onUpdateBoardDesc: (desc: string) => void;
+  onGroupElements?: (ids: string[], name?: string) => void;
+  onUngroupElements?: (ids: string[]) => void;
+  onReorderElement?: (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
   theme: ThemeColors;
   themeMode: ThemeMode;
   onToggleTheme: () => void;
@@ -89,6 +99,9 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
   onDistributeElements,
   onUpdateBoardTitle,
   onUpdateBoardDesc,
+  onGroupElements,
+  onUngroupElements,
+  onReorderElement,
   theme,
   themeMode,
   onToggleTheme,
@@ -133,7 +146,9 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
           }}
         >
           {single
-            ? `${single.type.toUpperCase()}`
+            ? single.groupId
+              ? `${single.type.toUpperCase()} • ${single.groupName || 'GROUP'}`
+              : `${single.type.toUpperCase()}`
             : isMulti
             ? `${selectedElements.length} SELECTED`
             : selectedConnector
@@ -143,6 +158,27 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
 
         {(single || isMulti) && (
           <div style={{ display: 'flex', gap: 4 }}>
+            {/* Group / Ungroup in header */}
+            {selectedElements.some((el) => Boolean(el.groupId)) && onUngroupElements && (
+              <button
+                type="button"
+                title="Ungroup"
+                onClick={() => onUngroupElements(selectedElements.map((el) => el.id))}
+                style={{ ...iconBtnStyle, color: '#f87171' }}
+              >
+                <Ungroup size={13} />
+              </button>
+            )}
+            {isMulti && onGroupElements && (
+              <button
+                type="button"
+                title="Group Selected"
+                onClick={() => onGroupElements(selectedElements.map((el) => el.id))}
+                style={{ ...iconBtnStyle, color: '#60a5fa' }}
+              >
+                <Group size={13} />
+              </button>
+            )}
             <button
               type="button"
               title="Duplicate"
@@ -247,6 +283,47 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                   {single.aspectRatioLocked ? 'Locked' : 'Unlocked'}
                 </button>
               </div>
+
+              {/* Layer Ordering Controls */}
+              {onReorderElement && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: theme.textMuted }}>Layer Order</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => onReorderElement(single.id, 'top')}
+                      title="Bring to Front"
+                      style={toolActionBtnStyle(theme)}
+                    >
+                      <ChevronsUp size={12} /> To Front
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReorderElement(single.id, 'up')}
+                      title="Bring Forward"
+                      style={toolActionBtnStyle(theme)}
+                    >
+                      <ArrowUp size={12} /> Forward
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReorderElement(single.id, 'down')}
+                      title="Send Backward"
+                      style={toolActionBtnStyle(theme)}
+                    >
+                      <ArrowDown size={12} /> Backward
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReorderElement(single.id, 'bottom')}
+                      title="Send to Back"
+                      style={toolActionBtnStyle(theme)}
+                    >
+                      <ChevronsDown size={12} /> To Back
+                    </button>
+                  </div>
+                </div>
+              )}
             </Section>
 
             {/* Image Asset Controls when type === 'image' */}
@@ -464,33 +541,81 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
 
                 {single.prototypeAction === 'navigate' && (
                   <>
-                    <label style={labelStyle(theme)}>Target Board</label>
+                    <label style={labelStyle(theme)}>Destination Screen or Board</label>
                     <select
                       value={single.prototypeTarget || ''}
                       onChange={(e) => onUpdateElement(single.id, { prototypeTarget: e.target.value })}
                       style={selectStyle(theme)}
                     >
-                      <option value="">Select destination board...</option>
+                      <option value="">Select destination...</option>
+                      {board.elements
+                        .filter((el) => el.type.startsWith('frame') && el.id !== single.id)
+                        .map((f) => (
+                          <option key={f.id} value={f.id}>
+                            📱 Screen: {f.label || f.type}
+                          </option>
+                        ))}
                       {allBoards.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.title}
+                          📋 Board: {b.title}
                         </option>
                       ))}
                     </select>
                   </>
                 )}
 
-                {(single.prototypeAction === 'modal' || single.prototypeAction === 'alert') && (
+                {single.prototypeAction === 'modal' && (
                   <>
-                    <label style={labelStyle(theme)}>Sheet Title / Message</label>
+                    <label style={labelStyle(theme)}>Modal Dialog Title</label>
                     <input
                       type="text"
-                      placeholder="e.g. Success Notification"
+                      placeholder="e.g. Confirm Order"
+                      value={single.prototypeTarget || ''}
+                      onChange={(e) => onUpdateElement(single.id, { prototypeTarget: e.target.value })}
+                      style={inputStyle(theme)}
+                    />
+
+                    <label style={labelStyle(theme)}>Modal Description / Body</label>
+                    <textarea
+                      placeholder="e.g. Are you sure you want to proceed with this operation?"
+                      value={single.prototypePayload || ''}
+                      onChange={(e) => onUpdateElement(single.id, { prototypePayload: e.target.value })}
+                      rows={2}
+                      style={{ ...inputStyle(theme), resize: 'vertical' }}
+                    />
+                  </>
+                )}
+
+                {single.prototypeAction === 'alert' && (
+                  <>
+                    <label style={labelStyle(theme)}>Toast Notification Message</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Settings updated successfully"
                       value={single.prototypePayload || ''}
                       onChange={(e) => onUpdateElement(single.id, { prototypePayload: e.target.value })}
                       style={inputStyle(theme)}
                     />
                   </>
+                )}
+
+                {single.prototypeAction && single.prototypeAction !== 'none' && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 8px',
+                      borderRadius: 4,
+                      backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#38bdf8',
+                      fontSize: 11,
+                    }}
+                  >
+                    <Zap size={12} />
+                    <span>Active in Prototype Preview & Simulation</span>
+                  </div>
                 )}
               </div>
             </Section>
@@ -536,6 +661,21 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                 onChange={(e) => onUpdateElement(single.id, { fillColor: e.target.value })}
                 style={inputStyle(theme)}
               />
+
+              <div style={{ marginTop: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>
+                  <span>Opacity</span>
+                  <span>{Math.round((single.opacity ?? 1) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round((single.opacity ?? 1) * 100)}
+                  onChange={(e) => onUpdateElement(single.id, { opacity: Number(e.target.value) / 100 })}
+                  style={{ width: '100%', accentColor: theme.accent }}
+                />
+              </div>
             </Section>
 
             {/* Stroke / Border */}
@@ -571,6 +711,19 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                   onChange={(v) => onUpdateElement(single.id, { cornerRadius: Math.max(0, v) })}
                   theme={theme}
                 />
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <label style={labelStyle(theme)}>Border Style</label>
+                <select
+                  value={single.strokeStyle || 'solid'}
+                  onChange={(e) => onUpdateElement(single.id, { strokeStyle: e.target.value as any })}
+                  style={selectStyle(theme)}
+                >
+                  <option value="solid">Solid Line</option>
+                  <option value="dashed">Dashed Line</option>
+                  <option value="dotted">Dotted Line</option>
+                </select>
               </div>
             </Section>
           </>

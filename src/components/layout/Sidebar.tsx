@@ -8,6 +8,7 @@ import {
 import { ThemeColors } from '../../styles/theme';
 import { TutorialPanel } from '../tutorial/TutorialPanel';
 import { ExamplesGalleryPanel } from '../examples/ExamplesGalleryPanel';
+import { StructurePanel } from './StructurePanel';
 import { ExampleProjectDefinition } from '../../data/exampleProjects';
 import {
   Plus,
@@ -51,9 +52,13 @@ interface SidebarProps {
   elements: CanvasElement[];
   selectedElementIds: string[];
   onSelectElement: (id: string, isMulti: boolean) => void;
+  onSelectElements?: (ids: string[]) => void;
   onToggleVisibility: (id: string) => void;
   onToggleLock: (id: string) => void;
-  onReorderElement: (id: string, direction: 'up' | 'down') => void;
+  onReorderElement: (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
+  onGroupElements?: (ids: string[], name?: string) => void;
+  onUngroupElements?: (ids: string[]) => void;
+  onRenameElement?: (id: string, newLabel: string) => void;
   theme: ThemeColors;
   onStartGuidedTour: () => void;
   onReplayWelcome: () => void;
@@ -76,9 +81,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   elements,
   selectedElementIds,
   onSelectElement,
+  onSelectElements,
   onToggleVisibility,
   onToggleLock,
   onReorderElement,
+  onGroupElements,
+  onUngroupElements,
+  onRenameElement,
   theme,
   onStartGuidedTour,
   onReplayWelcome,
@@ -140,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {activeTab === 'boards' && 'Project Boards'}
           {activeTab === 'elements' && 'Elements Library'}
-          {activeTab === 'layers' && 'Canvas Layers'}
+          {activeTab === 'layers' && 'Structure & Layers'}
           {activeTab === 'examples' && 'Example Projects'}
           {activeTab === 'tutorial' && 'Tutorial & Guides'}
           {activeTab === 'shortcuts' && 'Key Bindings'}
@@ -606,114 +615,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* LAYERS TAB */}
+        {/* LAYERS & STRUCTURE TAB */}
         {activeTab === 'layers' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {elements.length === 0 ? (
-              <div style={{ color: theme.textMuted, fontSize: 12, textAlign: 'center', padding: 20 }}>
-                No elements on this board yet.
-              </div>
-            ) : (
-              [...elements].reverse().map((el) => {
-                const isSelected = selectedElementIds.includes(el.id);
-
-                return (
-                  <div
-                    key={el.id}
-                    onClick={(e) => onSelectElement(el.id, e.shiftKey || e.ctrlKey || e.metaKey)}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      backgroundColor: isSelected ? theme.surfaceActive : theme.surfaceBg,
-                      border: isSelected ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                      <span style={{ color: isSelected ? theme.accent : theme.textMuted }}>
-                        {el.type === 'frame-desktop' && <Layout size={13} />}
-                        {el.type === 'frame-mobile' && <Smartphone size={13} />}
-                        {el.type === 'cylinder' && <Database size={13} />}
-                        {el.type === 'cloud' && <Cloud size={13} />}
-                        {el.type === 'diamond' && <Diamond size={13} />}
-                        {el.type === 'service' && <Server size={13} />}
-                        {el.type === 'text' && <Type size={13} />}
-                        {el.type === 'image' && <ImageIcon size={13} />}
-                        {el.type === 'button' && <MousePointerClick size={13} />}
-                        {el.type === 'input' && <TextCursorInput size={13} />}
-                        {el.type === 'rectangle' && <Square size={13} />}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: el.hidden ? '#525b6a' : isSelected ? '#ffffff' : theme.textSecondary,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          textDecoration: el.hidden ? 'line-through' : 'none',
-                        }}
-                      >
-                        {el.label || el.type}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onReorderElement(el.id, 'up')}
-                        title="Bring Forward"
-                        style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: 2 }}
-                      >
-                        <ArrowUp size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onReorderElement(el.id, 'down')}
-                        title="Send Backward"
-                        style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: 2 }}
-                      >
-                        <ArrowDown size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onToggleLock(el.id)}
-                        title={el.locked ? 'Unlock' : 'Lock'}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: el.locked ? '#eab308' : theme.textMuted,
-                          cursor: 'pointer',
-                          padding: 2,
-                        }}
-                      >
-                        {el.locked ? <Lock size={12} /> : <Unlock size={12} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onToggleVisibility(el.id)}
-                        title={el.hidden ? 'Show' : 'Hide'}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: el.hidden ? '#ef4444' : theme.textMuted,
-                          cursor: 'pointer',
-                          padding: 2,
-                        }}
-                      >
-                        {el.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <StructurePanel
+            elements={elements}
+            selectedElementIds={selectedElementIds}
+            onSelectElement={onSelectElement}
+            onSelectElements={onSelectElements}
+            onToggleVisibility={onToggleVisibility}
+            onToggleLock={onToggleLock}
+            onReorderElement={onReorderElement}
+            onGroupElements={onGroupElements}
+            onUngroupElements={onUngroupElements}
+            onRenameElement={onRenameElement}
+            theme={theme}
+          />
         )}
 
         {/* TUTORIAL TAB */}

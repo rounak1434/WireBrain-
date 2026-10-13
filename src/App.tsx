@@ -470,22 +470,74 @@ export const App: React.FC = () => {
   );
 
   const reorderElement = useCallback(
-    (id: string, direction: 'up' | 'down') => {
+    (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
       history.set((prev) => {
         const index = prev.elements.findIndex((el) => el.id === id);
         if (index === -1) return prev;
         const newEls = [...prev.elements];
-        if (direction === 'up' && index < newEls.length - 1) {
-          const temp = newEls[index];
-          newEls[index] = newEls[index + 1];
-          newEls[index + 1] = temp;
-        } else if (direction === 'down' && index > 0) {
-          const temp = newEls[index];
-          newEls[index] = newEls[index - 1];
-          newEls[index - 1] = temp;
+        const target = newEls.splice(index, 1)[0];
+        if (direction === 'up') {
+          newEls.splice(Math.min(newEls.length, index + 1), 0, target);
+        } else if (direction === 'down') {
+          newEls.splice(Math.max(0, index - 1), 0, target);
+        } else if (direction === 'top') {
+          newEls.push(target);
+        } else if (direction === 'bottom') {
+          newEls.unshift(target);
         }
-        return { ...prev, elements: newEls };
+        return { ...prev, elements: newEls, updatedAt: Date.now() };
       });
+    },
+    [history]
+  );
+
+  const groupElements = useCallback(
+    (ids: string[], customName?: string) => {
+      if (ids.length < 2) return;
+      const groupId = `group-${Date.now()}`;
+      const groupName = customName || `Group ${groupId.slice(-4)}`;
+      history.set((prev) => ({
+        ...prev,
+        elements: prev.elements.map((el) =>
+          ids.includes(el.id) ? { ...el, groupId, groupName } : el
+        ),
+        updatedAt: Date.now(),
+      }));
+      setSelectedElementIds(ids);
+    },
+    [history]
+  );
+
+  const ungroupElements = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      history.set((prev) => ({
+        ...prev,
+        elements: prev.elements.map((el) => {
+          if (ids.includes(el.id) || (el.groupId && ids.includes(el.groupId))) {
+            const next = { ...el };
+            delete next.groupId;
+            delete next.groupName;
+            return next;
+          }
+          return el;
+        }),
+        updatedAt: Date.now(),
+      }));
+    },
+    [history]
+  );
+
+  const renameElement = useCallback(
+    (id: string, newLabel: string) => {
+      if (!newLabel.trim()) return;
+      history.set((prev) => ({
+        ...prev,
+        elements: prev.elements.map((el) =>
+          el.id === id ? { ...el, label: newLabel.trim() } : el
+        ),
+        updatedAt: Date.now(),
+      }));
     },
     [history]
   );
@@ -988,6 +1040,10 @@ export const App: React.FC = () => {
           onToggleVisibility={toggleVisibility}
           onToggleLock={toggleLock}
           onReorderElement={reorderElement}
+          onSelectElements={setSelectedElementIds}
+          onGroupElements={groupElements}
+          onUngroupElements={ungroupElements}
+          onRenameElement={renameElement}
           theme={theme}
           onStartGuidedTour={() => setIsTourOpen(true)}
           onReplayWelcome={() => setIsWelcomeModalOpen(true)}
@@ -1041,6 +1097,9 @@ export const App: React.FC = () => {
           onDuplicateElements={duplicateElements}
           onAlignElements={alignElements}
           onDistributeElements={distributeElements}
+          onGroupElements={groupElements}
+          onUngroupElements={ungroupElements}
+          onReorderElement={reorderElement}
           onUpdateBoardTitle={(title) => renameBoard(activeBoard.id, title)}
           onUpdateBoardDesc={(desc) =>
             history.set((prev) => ({ ...prev, description: desc }), false)
