@@ -740,6 +740,40 @@ export const Canvas: React.FC<CanvasProps> = ({
             boxShadowStyle = '0 0 18px rgba(16, 185, 129, 0.65)';
           }
 
+          const isFrame = el.type.startsWith('frame');
+
+          // Check if this element is inside any active frame during simulation
+          const isInsideActiveFrame =
+            isSimulating &&
+            activeSimulationStep &&
+            !isFrame &&
+            elements.some(
+              (f) =>
+                f.type.startsWith('frame') &&
+                (f.id === activeSimulationStep.sourceNodeId || f.id === activeSimulationStep.targetNodeId) &&
+                el.x >= f.x - 10 &&
+                el.x + el.width <= f.x + f.width + 10 &&
+                el.y >= f.y - 10 &&
+                el.y + el.height <= f.y + f.height + 10
+            );
+
+          // Safe layering: Frames always remain behind content elements
+          const elementZIndex = isFrame
+            ? isSimActive
+              ? 3
+              : isSelected
+              ? 2
+              : 1
+            : isSimActive
+            ? 15
+            : isSelected
+            ? 10
+            : 5;
+
+          // In simulation, keep active elements and elements inside active frames fully visible
+          const elementOpacity =
+            !isSimulating || isSimActive || isInsideActiveFrame || isSelected ? 1 : 0.65;
+
           return (
             <div
               key={el.id}
@@ -757,8 +791,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                 outlineOffset: 2,
                 boxShadow: boxShadowStyle,
                 borderRadius: el.cornerRadius || 4,
-                zIndex: isSimActive ? 12 : isSelected ? 8 : el.type.startsWith('frame') ? 1 : 2,
-                opacity: isSimulating && !isSimActive ? 0.6 : 1,
+                zIndex: elementZIndex,
+                opacity: elementOpacity,
                 transition: 'opacity 0.2s ease, box-shadow 0.2s ease',
               }}
             >
