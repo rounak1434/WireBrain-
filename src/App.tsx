@@ -1092,6 +1092,7 @@ export const App: React.FC = () => {
                 : undefined
             }
             isWireframe={activeBoard.elements.some((e) => e.type.startsWith('frame'))}
+            boardTitle={activeBoard.title}
           />
         )}
       </div>

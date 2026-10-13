@@ -14,6 +14,7 @@ import {
   Server,
   Terminal,
   Smartphone,
+  Spline,
 } from 'lucide-react';
 
 interface SimulationControllerProps {
@@ -33,6 +34,7 @@ interface SimulationControllerProps {
   onExitSimulation: () => void;
   onOpenDevicePreview?: () => void;
   isWireframe?: boolean;
+  boardTitle?: string;
 }
 
 export const SimulationController: React.FC<SimulationControllerProps> = ({
@@ -52,8 +54,132 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
   onExitSimulation,
   onOpenDevicePreview,
   isWireframe = false,
+  boardTitle,
 }) => {
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || scenarios[0];
+
+  // Useful empty state when board has no configured routes or interactions
+  if (totalSteps === 0 || !activeScenario || activeScenario.steps.length === 0) {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: 60,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          userSelect: 'none',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            padding: '14px 18px',
+            backgroundColor: '#07090d',
+            border: '1.5px solid #283142',
+            borderRadius: 10,
+            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.85), 0 0 16px rgba(59, 130, 246, 0.1)',
+            minWidth: 420,
+            maxWidth: 540,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: '#64748b',
+                }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.03em' }}>
+                SIMULATION {boardTitle ? `· ${boardTitle}` : ''}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onExitSimulation}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                backgroundColor: '#161b24',
+                border: '1px solid #283142',
+                borderRadius: 6,
+                color: '#d0dae7',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <X size={13} /> Exit Simulation
+            </button>
+          </div>
+
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0, lineHeight: 1.45 }}>
+            {isWireframe
+              ? 'This wireframe has no connected screens or configured prototype interactions. To simulate a user flow, connect CTA buttons to target screens using the Connector tool (C) or configure Prototype Actions in the Properties panel.'
+              : 'This diagram has no active data flow pathways. Connect nodes using the Connector tool (C) to trace events and data movement through the diagram.'}
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            {onOpenDevicePreview && (
+              <button
+                type="button"
+                onClick={onOpenDevicePreview}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 12px',
+                  backgroundColor: '#1e3a8a',
+                  border: '1px solid #3b82f6',
+                  borderRadius: 6,
+                  color: '#ffffff',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Smartphone size={12} color="#93c5fd" />
+                <span>Open Device Viewport</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onExitSimulation}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 12px',
+                backgroundColor: '#151922',
+                border: '1px solid #2d3648',
+                borderRadius: 6,
+                color: '#cbd5e1',
+                fontSize: 11,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              <Spline size={12} color="#38bdf8" />
+              <span>Return to Editor to Connect</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div

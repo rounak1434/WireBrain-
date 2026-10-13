@@ -57,7 +57,11 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
   const bTitle = board.title.toLowerCase();
 
   // 1. System Architecture / Microservices
-  if (bId.includes('system') || bId.includes('architecture') || bTitle.includes('system') || bTitle.includes('architecture')) {
+  if (
+    (bId.includes('system') || bId.includes('architecture') || bTitle.includes('system') || bTitle.includes('architecture')) &&
+    board.elements.some((e) => e.id === 'sys-gateway') &&
+    board.elements.some((e) => e.id === 'sys-core-svc')
+  ) {
     return [
       {
         id: 'scenario-auth',
@@ -227,7 +231,11 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
   }
 
   // 2. Cloud Infrastructure & Database (AWS Multi-AZ)
-  if (bId.includes('infra') || bTitle.includes('infra') || bTitle.includes('cloud')) {
+  if (
+    (bId.includes('infra') || bTitle.includes('infra') || bTitle.includes('cloud')) &&
+    board.elements.some((e) => e.id === 'infra-alb') &&
+    board.elements.some((e) => e.id === 'infra-igw')
+  ) {
     return [
       {
         id: 'scenario-infra-ingress',
@@ -313,7 +321,11 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
   }
 
   // 3. User Journey / KYC Flowchart
-  if (bId.includes('flowchart') || bTitle.includes('flowchart') || bTitle.includes('kyc')) {
+  if (
+    (bId.includes('flowchart') || bTitle.includes('flowchart') || bTitle.includes('kyc')) &&
+    board.elements.some((e) => e.id === 'flow-step-scan') &&
+    board.elements.some((e) => e.id === 'flow-decision-score')
+  ) {
     return [
       {
         id: 'scenario-flow-approved',
@@ -436,7 +448,11 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
   }
 
   // 4. Mobile App: Starter Board (Mobile Ops Dashboard)
-  if (bId === 'board-mobile' || (bId.includes('mobile') && board.elements.some((e) => e.id === 'mob-frame-1'))) {
+  if (
+    board.elements.some((e) => e.id === 'mob-frame-1') &&
+    board.elements.some((e) => e.id === 'mob-frame-2') &&
+    board.elements.some((e) => e.id === 'mob-action-btn')
+  ) {
     return [
       {
         id: 'scenario-mobile-ops',
@@ -481,7 +497,10 @@ function getPredefinedScenarios(board: Board): SimulationScenario[] {
   }
 
   // 5. Mobile App: Fintech Wallet Example
-  if (bId === 'board-example-mobile' || bId.includes('mobile') || bTitle.includes('mobile') || bTitle.includes('wallet')) {
+  if (
+    board.elements.some((e) => e.id === 'mob-1-login-btn') &&
+    board.elements.some((e) => e.id === 'mob-screen-2')
+  ) {
     return [
       {
         id: 'scenario-mobile-wallet',
@@ -774,34 +793,100 @@ function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
 }
 
 /**
+ * For wireframes that have configured prototype actions on buttons or components
+ * (even without explicit connectors on the canvas), generate interactive prototype scenarios.
+ */
+function generatePrototypeScenariosFromActions(board: Board): SimulationScenario[] {
+  const elementsWithAction = board.elements.filter(
+    (el) => el.prototypeAction && el.prototypeAction !== 'none'
+  );
+
+  if (elementsWithAction.length === 0) return [];
+
+  const steps: SimulationStep[] = elementsWithAction.map((el, idx) => {
+    const action = el.prototypeAction;
+    const target = el.prototypeTarget || 'Next Screen';
+    let targetId = el.prototypeTarget;
+    const targetEl = board.elements.find(
+      (e) => e.id === el.prototypeTarget || e.label === el.prototypeTarget
+    );
+    if (targetEl) targetId = targetEl.id;
+    else targetId = el.id;
+
+    let title = `Action: Click "${el.label || 'Button'}"`;
+    let desc = `User activates "${el.label || 'Element'}".`;
+    if (action === 'navigate') {
+      title = `Navigate: "${el.label}" → ${targetEl?.label || target}`;
+      desc = `Clicking "${el.label}" transitions to screen "${targetEl?.label || target}".`;
+    } else if (action === 'modal') {
+      title = `Open Modal: ${target}`;
+      desc = `Clicking "${el.label}" opens the "${target}" dialog sheet.`;
+    } else if (action === 'alert') {
+      title = `Trigger Alert: ${el.prototypePayload || el.label}`;
+      desc = `Clicking "${el.label}" triggers action: "${el.prototypePayload || el.label}".`;
+    } else if (action === 'back') {
+      title = `Return Navigation: Back`;
+      desc = `Clicking "${el.label}" returns to the previous screen.`;
+    }
+
+    return {
+      stepNumber: idx + 1,
+      sourceNodeId: el.id,
+      targetNodeId: targetId || el.id,
+      title,
+      description: desc,
+      protocol: action === 'navigate' ? 'Screen Navigation' : action === 'modal' ? 'Modal Overlay' : 'UI Event',
+      payload: `Action: ${action}; Target: ${target}`,
+      response: 'Interaction Executed',
+    };
+  });
+
+  return [
+    {
+      id: 'scenario-prototype-actions',
+      title: `${board.title} Interactive Flow`,
+      description: `Step-through of ${steps.length} configured prototype button and navigation interactions.`,
+      steps,
+    },
+  ];
+}
+
+/**
  * Main entry point: Retrieves active simulation scenarios for any given board.
  * Combines validated template scenarios with dynamic topological graph routes.
  */
 export function getScenariosForBoard(board: Board): SimulationScenario[] {
-  // 1. Get predefined scenarios if applicable
+  // 1. Get predefined scenarios if applicable (strictly verified by element IDs)
   const predefined = getPredefinedScenarios(board);
   const validatedPredefined = validateAndPruneScenarios(predefined, board);
 
   // 2. Generate dynamic topological routes from canvas connectors
   const dynamicScenarios = generateDynamicScenariosFromGraph(board);
 
-  // If validated predefined scenarios exist, combine them with any novel dynamic routes
+  // 3. Generate dynamic prototype routes from configured element interactions
+  const prototypeScenarios = generatePrototypeScenariosFromActions(board);
+
+  // If validated predefined scenarios exist, return them
   if (validatedPredefined.length > 0) {
-    // Return predefined plus any extra dynamic scenario if relevant
     return validatedPredefined;
   }
 
-  // If dynamic scenarios found
+  // If dynamic scenarios found from connectors
   if (dynamicScenarios.length > 0) {
     return dynamicScenarios;
   }
 
-  // Fallback when no connectors exist on canvas
+  // If prototype action scenarios found
+  if (prototypeScenarios.length > 0) {
+    return prototypeScenarios;
+  }
+
+  // Fallback when no connectors or actions exist on canvas
   return [
     {
       id: 'scenario-empty',
       title: 'No Connected Routes Found',
-      description: 'Connect elements on the canvas using arrows (C) to generate an automated data flow.',
+      description: 'Connect elements on the canvas using arrows (C) or configure prototype actions to generate an automated data flow.',
       steps: [],
     },
   ];
