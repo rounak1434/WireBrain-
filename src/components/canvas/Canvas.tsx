@@ -96,6 +96,23 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Element hover state for anchor display
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
 
+  // Canvas Prototype Simulation Interactivity
+  const [activeSimModal, setActiveSimModal] = useState<{ title: string; desc?: string } | null>(null);
+  const [activeSimToast, setActiveSimToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeSimToast) return;
+    const t = setTimeout(() => setActiveSimToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [activeSimToast]);
+
+  useEffect(() => {
+    if (!isSimulating) {
+      setActiveSimModal(null);
+      setActiveSimToast(null);
+    }
+  }, [isSimulating]);
+
   const elementsById = new Map<string, CanvasElement>();
   elements.forEach((el) => elementsById.set(el.id, el));
 
@@ -317,9 +334,87 @@ export const Canvas: React.FC<CanvasProps> = ({
     onSelectConnector(null);
   };
 
+  // Simulation Prototype Action Handler
+  const handleSimulationElementClick = (el: CanvasElement) => {
+    // 1. Prototype Action: Modal
+    if (el.prototypeAction === 'modal') {
+      setActiveSimModal({
+        title: el.prototypeTarget || `${el.label || 'Dialog'} Modal`,
+        desc: el.prototypePayload || `Interactive modal dialog invoked from "${el.label || 'button'}"`,
+      });
+      return;
+    }
+
+    // 2. Prototype Action: Alert
+    if (el.prototypeAction === 'alert') {
+      setActiveSimToast(el.prototypePayload || `Alert: "${el.label || 'Action'}" executed`);
+      return;
+    }
+
+    // 3. Prototype Action: Navigate to Screen/Frame
+    if (el.prototypeAction === 'navigate') {
+      const targetId = el.prototypeTarget;
+      const targetEl = elements.find((e) => e.id === targetId || e.label === targetId);
+      if (targetEl) {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const targetCenterX = targetEl.x + targetEl.width / 2;
+          const targetCenterY = targetEl.y + targetEl.height / 2;
+          setPan({
+            x: rect.width / 2 - targetCenterX * zoom,
+            y: rect.height / 2 - targetCenterY * zoom,
+          });
+        }
+        setActiveSimToast(`Navigated to: ${targetEl.label || 'Target Screen'}`);
+      }
+      return;
+    }
+
+    // 4. Prototype Action: Back
+    if (el.prototypeAction === 'back') {
+      const frames = elements.filter((e) => e.type.startsWith('frame'));
+      if (frames.length > 0) {
+        const firstFrame = frames[0];
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          setPan({
+            x: rect.width / 2 - (firstFrame.x + firstFrame.width / 2) * zoom,
+            y: rect.height / 2 - (firstFrame.y + firstFrame.height / 2) * zoom,
+          });
+        }
+        setActiveSimToast(`Returned to: ${firstFrame.label || 'Main Screen'}`);
+      }
+      return;
+    }
+
+    // 5. Outgoing Connector to another element/frame
+    const outgoingConn = connectors.find((c) => c.fromId === el.id);
+    if (outgoingConn) {
+      const targetEl = elementsById.get(outgoingConn.toId);
+      if (targetEl) {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const targetCenterX = targetEl.x + targetEl.width / 2;
+          const targetCenterY = targetEl.y + targetEl.height / 2;
+          setPan({
+            x: rect.width / 2 - targetCenterX * zoom,
+            y: rect.height / 2 - targetCenterY * zoom,
+          });
+        }
+        setActiveSimToast(`Transitioned to: ${targetEl.label || 'Connected Node'}`);
+      }
+    }
+  };
+
   // Element Mouse Down
   const handleElementMouseDown = (el: CanvasElement, e: React.MouseEvent) => {
-    if (isSpaceDown || toolMode === 'pan' || e.button !== 0 || isSimulating) return;
+    if (isSpaceDown || toolMode === 'pan' || e.button !== 0) return;
+
+    if (isSimulating) {
+      e.stopPropagation();
+      handleSimulationElementClick(el);
+      return;
+    }
 
     e.stopPropagation();
 
@@ -729,6 +824,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isSimTarget = isSimulating && activeSimulationStep?.targetNodeId === el.id;
           const isSimActive = isSimSource || isSimTarget;
 
+          const isInteractiveHotspot =
+            isSimulating &&
+            ((Boolean(el.prototypeAction) && el.prototypeAction !== 'none') ||
+              connectors.some((c) => c.fromId === el.id));
+
           let outlineStyle = isSelected ? `2px solid ${theme.accent}` : 'none';
           let boxShadowStyle = 'none';
 
@@ -738,6 +838,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           } else if (isSimTarget) {
             outlineStyle = '2px solid #10b981';
             boxShadowStyle = '0 0 18px rgba(16, 185, 129, 0.65)';
+          } else if (isInteractiveHotspot) {
+            outlineStyle = '1.5px dashed rgba(56, 189, 248, 0.8)';
+            boxShadowStyle =
+              hoveredElementId === el.id
+                ? '0 0 14px rgba(56, 189, 248, 0.6)'
+                : '0 0 8px rgba(56, 189, 248, 0.25)';
           }
 
           const isFrame = el.type.startsWith('frame');
@@ -768,11 +874,23 @@ export const Canvas: React.FC<CanvasProps> = ({
             ? 15
             : isSelected
             ? 10
+            : isInteractiveHotspot
+            ? 8
             : 5;
 
-          // In simulation, keep active elements and elements inside active frames fully visible
+          // In simulation, keep active elements, interactive hotspots, and elements inside active frames fully visible
           const elementOpacity =
-            !isSimulating || isSimActive || isInsideActiveFrame || isSelected ? 1 : 0.65;
+            !isSimulating || isSimActive || isInsideActiveFrame || isInteractiveHotspot || isSelected
+              ? 1
+              : 0.65;
+
+          const elementCursor = isSimulating
+            ? isInteractiveHotspot
+              ? 'pointer'
+              : 'default'
+            : el.locked
+            ? 'default'
+            : 'move';
 
           return (
             <div
@@ -786,7 +904,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 top: el.y,
                 width: el.width,
                 height: el.height,
-                cursor: isSimulating ? 'default' : el.locked ? 'default' : 'move',
+                cursor: elementCursor,
                 outline: outlineStyle,
                 outlineOffset: 2,
                 boxShadow: boxShadowStyle,
@@ -843,6 +961,129 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
       </div>
+
+      {/* Simulation Prototype Modal Overlay Dialog */}
+      {isSimulating && activeSimModal && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 60,
+          }}
+          onClick={() => setActiveSimModal(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#0c0f17',
+              border: '1.5px solid #3b82f6',
+              borderRadius: 12,
+              padding: '24px 28px',
+              maxWidth: 440,
+              width: '90%',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.9), 0 0 24px rgba(59, 130, 246, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#3b82f6' }} />
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>
+                  {activeSimModal.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSimModal(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: 4,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>
+              {activeSimModal.desc || 'Interactive dialog state triggered in simulation prototype mode.'}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+              <button
+                type="button"
+                onClick={() => setActiveSimModal(null)}
+                style={{
+                  padding: '7px 14px',
+                  backgroundColor: '#1b2230',
+                  border: '1px solid #2e384d',
+                  borderRadius: 6,
+                  color: '#e2e8f0',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSimModal(null);
+                  setActiveSimToast('Action Confirmed in Prototype Simulation');
+                }}
+                style={{
+                  padding: '7px 14px',
+                  backgroundColor: '#3b82f6',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#ffffff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Confirm & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simulation Prototype Toast Banner */}
+      {isSimulating && activeSimToast && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#0f172a',
+            border: '1px solid #38bdf8',
+            borderRadius: 8,
+            padding: '8px 16px',
+            color: '#f8fafc',
+            fontSize: 12,
+            fontWeight: 600,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.8), 0 0 16px rgba(56, 189, 248, 0.3)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#38bdf8' }} />
+          <span>{activeSimToast}</span>
+        </div>
+      )}
     </div>
   );
 };

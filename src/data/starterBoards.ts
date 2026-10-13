@@ -84,6 +84,9 @@ export const starterBoards: Board[] = [
         textColor: '#ffffff',
         fontSize: 13,
         fontWeight: '600',
+        prototypeAction: 'modal',
+        prototypeTarget: 'WireBrain Enterprise Trial Registration',
+        prototypePayload: 'Launch enterprise instant trial onboarding',
       },
       // Hero Headline
       {
@@ -134,6 +137,9 @@ export const starterBoards: Board[] = [
         textColor: '#ffffff',
         fontSize: 14,
         fontWeight: '600',
+        prototypeAction: 'modal',
+        prototypeTarget: 'New Architecture Workspace Modal',
+        prototypePayload: 'Initialize project title, framework, and offline storage settings',
       },
       // Hero Secondary Button
       {
@@ -152,6 +158,8 @@ export const starterBoards: Board[] = [
         textColor: '#d3dae6',
         fontSize: 14,
         fontWeight: '500',
+        prototypeAction: 'alert',
+        prototypePayload: 'Entering WireBrain Sandbox Environment with mock telemetry services',
       },
       // Hero Visual Placeholder
       {

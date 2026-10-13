@@ -60,6 +60,15 @@ export function loadProjectFromStorage(): Project {
             }
           }
         }
+        if (b.id === 'board-website') {
+          const hasHeroAction = Array.isArray(b.elements) && b.elements.some((e: any) => e.id === 'web-hero-btn1' && e.prototypeAction);
+          if (!hasHeroAction) {
+            const freshWebBoard = defaultProject.boards.find((db) => db.id === 'board-website');
+            if (freshWebBoard) {
+              return freshWebBoard;
+            }
+          }
+        }
         return b;
       });
       return {
