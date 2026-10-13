@@ -1,8 +1,63 @@
 import { Board, CanvasElement, Connector, SimulationScenario, SimulationStep } from '../types';
 
-export function getScenariosForBoard(board: Board): SimulationScenario[] {
-  // If it's the System Map board
-  if (board.id.includes('system') || board.title.toLowerCase().includes('system')) {
+/**
+ * Filter and validate simulation steps against the actual live elements and connectors on a board.
+ * Any steps referencing deleted nodes are pruned, and connector IDs are reconciled.
+ */
+function validateAndPruneScenarios(
+  scenarios: SimulationScenario[],
+  board: Board
+): SimulationScenario[] {
+  const elementIdSet = new Set(board.elements.map((el) => el.id));
+  const connectorIdSet = new Set(board.connectors.map((c) => c.id));
+
+  const validScenarios: SimulationScenario[] = [];
+
+  for (const sc of scenarios) {
+    const validSteps: SimulationStep[] = [];
+
+    for (const step of sc.steps) {
+      // Must have both source and target nodes on the canvas
+      if (!elementIdSet.has(step.sourceNodeId) || !elementIdSet.has(step.targetNodeId)) {
+        continue;
+      }
+
+      // Check if connector still exists or find alternative connector
+      let connId = step.connectorId;
+      if (connId && !connectorIdSet.has(connId)) {
+        const altConn = board.connectors.find(
+          (c) => c.fromId === step.sourceNodeId && c.toId === step.targetNodeId
+        );
+        connId = altConn ? altConn.id : undefined;
+      }
+
+      validSteps.push({
+        ...step,
+        connectorId: connId,
+        stepNumber: validSteps.length + 1,
+      });
+    }
+
+    if (validSteps.length > 0) {
+      validScenarios.push({
+        ...sc,
+        steps: validSteps,
+      });
+    }
+  }
+
+  return validScenarios;
+}
+
+/**
+ * Predefined scenarios for known starter templates and example project boards.
+ */
+function getPredefinedScenarios(board: Board): SimulationScenario[] {
+  const bId = board.id.toLowerCase();
+  const bTitle = board.title.toLowerCase();
+
+  // 1. System Architecture / Microservices
+  if (bId.includes('system') || bId.includes('architecture') || bTitle.includes('system') || bTitle.includes('architecture')) {
     return [
       {
         id: 'scenario-auth',
@@ -171,52 +226,454 @@ export function getScenariosForBoard(board: Board): SimulationScenario[] {
     ];
   }
 
-  // Dynamic automatic scenarios generated from existing diagram connectors!
-  const steps: SimulationStep[] = [];
-  const visited = new Set<string>();
-
-  for (let i = 0; i < board.connectors.length; i++) {
-    const conn = board.connectors[i];
-    const fromEl = board.elements.find((el) => el.id === conn.fromId);
-    const toEl = board.elements.find((el) => el.id === conn.toId);
-    if (!fromEl || !toEl) continue;
-
-    const isDecision = fromEl.type === 'diamond' || toEl.type === 'diamond';
-
-    steps.push({
-      stepNumber: i + 1,
-      sourceNodeId: fromEl.id,
-      targetNodeId: toEl.id,
-      connectorId: conn.id,
-      title: conn.label ? `Transition: ${conn.label}` : `Step: ${fromEl.label} → ${toEl.label}`,
-      description: isDecision
-        ? `Evaluating decision branch: ${fromEl.label}. Outcome condition met.`
-        : `Data transmitted from ${fromEl.label} to ${toEl.label}.`,
-      protocol: conn.label || 'Connection link',
-      payload: `Dispatched from ${fromEl.label}`,
-      response: `Received by ${toEl.label}`,
-      decisionCondition: isDecision ? fromEl.label : undefined,
-      decisionOutcome: isDecision ? 'Condition Met (Proceed)' : undefined,
-    });
-  }
-
-  if (steps.length === 0) {
+  // 2. Cloud Infrastructure & Database (AWS Multi-AZ)
+  if (bId.includes('infra') || bTitle.includes('infra') || bTitle.includes('cloud')) {
     return [
       {
-        id: 'scenario-empty',
-        title: 'No Connected Routes Found',
-        description: 'Connect elements on the canvas using arrows (C) to generate an automated data flow.',
-        steps: [],
+        id: 'scenario-infra-ingress',
+        title: 'Internet Ingress & Application Load Balancer Routing',
+        description: 'Client connects via Internet Gateway; ALB distributes request to healthy EKS worker pods.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'infra-igw',
+            targetNodeId: 'infra-alb',
+            connectorId: 'conn-infra-igw-alb',
+            title: 'TLS Termination at ALB',
+            description: 'Internet Gateway forwards external traffic to AWS Application Load Balancer.',
+            protocol: 'HTTPS / TLS 1.3 (Port 443)',
+            payload: 'GET /api/v2/orders { Host: api.wirebrain.io }',
+            response: '200 ALB Health: OK',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'infra-alb',
+            targetNodeId: 'infra-eks-pod-1',
+            connectorId: 'conn-infra-alb-pod1',
+            title: 'Forward to EKS Pod AZ-A',
+            description: 'ALB evaluates target group health and proxies to active Kubernetes pod.',
+            protocol: 'HTTP/1.1 Private VPC (Port 8080)',
+            payload: 'X-Forwarded-For: 198.51.100.24',
+            response: 'Pod 1 (Ready, CPU 18%)',
+          },
+          {
+            stepNumber: 3,
+            sourceNodeId: 'infra-eks-pod-1',
+            targetNodeId: 'infra-db-master',
+            connectorId: 'conn-infra-pod1-db',
+            title: 'Aurora PostgreSQL Primary Write',
+            description: 'App container executes transaction on Aurora Multi-AZ writer instance.',
+            protocol: 'PostgreSQL SSL (Port 5432)',
+            payload: 'INSERT INTO orders (id, amount) VALUES (9182, 49.00);',
+            response: 'COMMIT (1.2ms)',
+          },
+          {
+            stepNumber: 4,
+            sourceNodeId: 'infra-db-master',
+            targetNodeId: 'infra-db-replica',
+            connectorId: 'conn-infra-db-repl',
+            title: 'Synchronous Storage Replication',
+            description: 'Aurora storage engine replicates write log across 3 Availability Zones.',
+            protocol: 'Aurora Shared Storage Engine',
+            payload: 'Sync WAL chunk block #402910',
+            response: 'Quorum ACK 6/6 nodes',
+          },
+        ],
+      },
+      {
+        id: 'scenario-infra-telemetry',
+        title: 'Observability & Metrics Aggregation',
+        description: 'EKS worker pod streams health and APM traces to CloudWatch & Prometheus.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'infra-eks-pod-2',
+            targetNodeId: 'infra-redis-cluster',
+            connectorId: 'conn-infra-pod2-redis',
+            title: 'Distributed Session Query',
+            description: 'Pod checks ElastiCache Redis replication group for tenant lock.',
+            protocol: 'Redis RESP (Port 6379)',
+            payload: 'GET lock:tenant_492',
+            response: '+OK (0.3ms)',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'infra-eks-pod-2',
+            targetNodeId: 'infra-cloudwatch',
+            connectorId: 'conn-infra-pod2-cw',
+            title: 'Telemetry Export',
+            description: 'Otel daemon exports p99 latency and error logs to CloudWatch Logs.',
+            protocol: 'CloudWatch PutMetricData (HTTPS)',
+            payload: 'Metrics: { p99: 14ms, req_count: 8200 }',
+            response: '200 Metric Ingested',
+          },
+        ],
       },
     ];
   }
 
+  // 3. User Journey / KYC Flowchart
+  if (bId.includes('flowchart') || bTitle.includes('flowchart') || bTitle.includes('kyc')) {
+    return [
+      {
+        id: 'scenario-flow-approved',
+        title: 'KYC Fast-Track Approval Path',
+        description: 'Complete flow from submission to automated document scan, pass score, and account activation.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'flow-start',
+            targetNodeId: 'flow-step-scan',
+            connectorId: 'conn-flow-start-scan',
+            title: 'Application Intake',
+            description: 'User submits personal credentials and government ID photo.',
+            protocol: 'Form Submission Event',
+            payload: 'ID Type: Passport; Jurisdiction: US',
+            response: 'Queued for OCR processing',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'flow-step-scan',
+            targetNodeId: 'flow-decision-score',
+            connectorId: 'conn-flow-scan-score',
+            title: 'OCR & Biometric Liveness Check',
+            description: 'Computer vision engine verifies facial match and holographic authenticity.',
+            protocol: 'ML Inference Pipeline',
+            payload: 'Confidence: 99.4%; Liveness: Verified',
+            response: 'Risk Score Calculated: 12 (Low)',
+          },
+          {
+            stepNumber: 3,
+            sourceNodeId: 'flow-decision-score',
+            targetNodeId: 'flow-step-account-ready',
+            connectorId: 'conn-flow-score-approved',
+            title: 'Decision Diamond: Score < 25 (Approved)',
+            description: 'Risk score is well below compliance threshold; bypasses manual analyst review.',
+            protocol: 'Decision Outcome',
+            payload: 'Risk Status: Low Risk (Auto-approved)',
+            response: 'Route to Account Provisioning',
+            decisionCondition: 'Risk Score < 25?',
+            decisionOutcome: 'Yes (Instant Approval)',
+          },
+          {
+            stepNumber: 4,
+            sourceNodeId: 'flow-step-account-ready',
+            targetNodeId: 'flow-end-success',
+            connectorId: 'conn-flow-ready-end',
+            title: 'Activate Account & Issue Notification',
+            description: 'Provision database record, create secure wallet, and send welcome SMS.',
+            protocol: 'Webhook & Push Notification',
+            payload: 'Account ID: acc_98124; Status: ACTIVE',
+            response: 'User Journey Complete',
+          },
+        ],
+      },
+      {
+        id: 'scenario-flow-manual-review',
+        title: 'KYC Compliance Analyst Manual Review Branch',
+        description: 'High risk score or ambiguous document triggers secondary manual review by compliance officer.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'flow-start',
+            targetNodeId: 'flow-step-scan',
+            connectorId: 'conn-flow-start-scan',
+            title: 'Application Intake',
+            description: 'Applicant submits identity documentation with minor glare.',
+            protocol: 'Form Submission Event',
+            payload: 'ID Type: Driver License',
+            response: 'Queued for OCR processing',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'flow-step-scan',
+            targetNodeId: 'flow-decision-score',
+            connectorId: 'conn-flow-scan-score',
+            title: 'Automated Scoring Inspection',
+            description: 'Automated scanner flags address discrepancy.',
+            protocol: 'Risk Engine',
+            payload: 'Score: 68 (Medium-High Risk)',
+            response: 'Decision required',
+          },
+          {
+            stepNumber: 3,
+            sourceNodeId: 'flow-decision-score',
+            targetNodeId: 'flow-step-manual-review',
+            connectorId: 'conn-flow-score-review',
+            title: 'Decision Diamond: Ambiguous Risk',
+            description: 'Score exceeds automated threshold; case routed to human compliance queue.',
+            protocol: 'Internal Ticket Dispatch',
+            payload: 'Case #KYC-4091 enqueued to Tier 2 Analyst',
+            response: 'Assigned to Analyst Rachel',
+            decisionCondition: 'Risk Score < 25?',
+            decisionOutcome: 'No (Escalate)',
+          },
+          {
+            stepNumber: 4,
+            sourceNodeId: 'flow-step-manual-review',
+            targetNodeId: 'flow-step-account-ready',
+            connectorId: 'conn-flow-review-approved',
+            title: 'Analyst Approves Case',
+            description: 'Analyst reviews secondary utility bill and overrides risk flag.',
+            protocol: 'Analyst Sign-off',
+            payload: 'Resolution: APPROVED; Operator: usr_analyst_12',
+            response: 'Proceed to Account Activation',
+          },
+          {
+            stepNumber: 5,
+            sourceNodeId: 'flow-step-account-ready',
+            targetNodeId: 'flow-end-success',
+            connectorId: 'conn-flow-ready-end',
+            title: 'Account Provisioned',
+            description: 'User receives notification and access to platform.',
+            protocol: 'System Completion',
+            payload: 'Status: ACTIVE',
+            response: 'Complete',
+          },
+        ],
+      },
+    ];
+  }
+
+  // 4. Mobile Banking App
+  if (bId.includes('mobile') || bTitle.includes('mobile')) {
+    return [
+      {
+        id: 'scenario-mobile-auth',
+        title: 'Biometric FaceID & Secure Dashboard Entry',
+        description: 'User unlocks mobile app with FaceID, fetches account balances, and loads quick actions.',
+        steps: [
+          {
+            stepNumber: 1,
+            sourceNodeId: 'mob-1-login-btn',
+            targetNodeId: 'mob-2-balance-card',
+            connectorId: 'conn-mob-login-dash',
+            title: 'Biometric Handshake',
+            description: 'Secure Enclave authenticates user biometric key and exchanges for short-lived session token.',
+            protocol: 'Apple Secure Enclave / Android Keystore',
+            payload: 'FaceID Verified; Issue JWT',
+            response: 'Access Granted: user_7721',
+          },
+          {
+            stepNumber: 2,
+            sourceNodeId: 'mob-2-send-btn',
+            targetNodeId: 'mob-3-amount-input',
+            connectorId: 'conn-mob-dash-transfer',
+            title: 'Initiate Transfer Flow',
+            description: 'User taps Quick Transfer button to open recipient selection sheet.',
+            protocol: 'Client Navigation Event',
+            payload: 'Route: /transfer/new { contact: "Sarah Jenkins" }',
+            response: 'View Rendered',
+          },
+          {
+            stepNumber: 3,
+            sourceNodeId: 'mob-3-confirm-btn',
+            targetNodeId: 'mob-2-activity-list',
+            connectorId: 'conn-mob-transfer-done',
+            title: 'Execute Payment & Update Activity Feed',
+            description: 'Core banking backend executes instant settlement and updates live ledger feed.',
+            protocol: 'ISO 20022 Fast Payment API',
+            payload: 'POST /transfer { amount: 350.00, currency: "USD" }',
+            response: 'Settlement Confirmed (Tx #98214)',
+          },
+        ],
+      },
+    ];
+  }
+
+  return [];
+}
+
+/**
+ * Intelligent graph route generator that traverses actual board connectors and nodes.
+ * Automatically generates multi-step paths for any custom diagram, including decision branches.
+ */
+function generateDynamicScenariosFromGraph(board: Board): SimulationScenario[] {
+  const elementsById = new Map<string, CanvasElement>(board.elements.map((el) => [el.id, el]));
+
+  // Valid connectors connecting existing elements
+  const validConnectors = board.connectors.filter(
+    (c) => elementsById.has(c.fromId) && elementsById.has(c.toId)
+  );
+
+  if (validConnectors.length === 0) {
+    return [];
+  }
+
+  // Build graph adjacency
+  const outEdges = new Map<string, Array<{ connector: Connector; targetId: string }>>();
+  const inDegree = new Map<string, number>();
+
+  for (const conn of validConnectors) {
+    if (!outEdges.has(conn.fromId)) {
+      outEdges.set(conn.fromId, []);
+    }
+    outEdges.get(conn.fromId)!.push({ connector: conn, targetId: conn.toId });
+    inDegree.set(conn.toId, (inDegree.get(conn.toId) || 0) + 1);
+  }
+
+  // Find root nodes (inDegree === 0)
+  const allConnectedNodeIds = new Set<string>();
+  for (const conn of validConnectors) {
+    allConnectedNodeIds.add(conn.fromId);
+    allConnectedNodeIds.add(conn.toId);
+  }
+
+  let rootNodeIds = Array.from(allConnectedNodeIds).filter((id) => (inDegree.get(id) || 0) === 0);
+
+  // If no root node (e.g. cycle), pick nodes that have outgoing edges
+  if (rootNodeIds.length === 0) {
+    rootNodeIds = Array.from(outEdges.keys()).slice(0, 3);
+  }
+
+  // Trace paths using DFS
+  interface PathStep {
+    fromId: string;
+    toId: string;
+    connector: Connector;
+  }
+
+  const generatedPaths: PathStep[][] = [];
+
+  function dfs(currId: string, currentPath: PathStep[], visitedNodes: Set<string>, depth: number) {
+    if (depth > 12) {
+      if (currentPath.length > 0) generatedPaths.push([...currentPath]);
+      return;
+    }
+
+    const edges = outEdges.get(currId) || [];
+    if (edges.length === 0) {
+      if (currentPath.length > 0) {
+        generatedPaths.push([...currentPath]);
+      }
+      return;
+    }
+
+    for (const edge of edges) {
+      if (visitedNodes.has(edge.targetId)) {
+        // Cycle detected: record current path and don't loop infinitely
+        const cyclicPath = [...currentPath, { fromId: currId, toId: edge.targetId, connector: edge.connector }];
+        generatedPaths.push(cyclicPath);
+        continue;
+      }
+
+      visitedNodes.add(edge.targetId);
+      currentPath.push({ fromId: currId, toId: edge.targetId, connector: edge.connector });
+
+      dfs(edge.targetId, currentPath, visitedNodes, depth + 1);
+
+      currentPath.pop();
+      visitedNodes.delete(edge.targetId);
+    }
+  }
+
+  for (const rootId of rootNodeIds) {
+    const visited = new Set<string>([rootId]);
+    dfs(rootId, [], visited, 0);
+  }
+
+  // If DFS yielded no paths (e.g. isolated edges), build direct edge paths
+  if (generatedPaths.length === 0) {
+    const fallbackPath: PathStep[] = validConnectors.map((c) => ({
+      fromId: c.fromId,
+      toId: c.toId,
+      connector: c,
+    }));
+    generatedPaths.push(fallbackPath);
+  }
+
+  // Deduplicate and filter paths: keep top 4 most interesting distinct paths
+  const sortedPaths = generatedPaths
+    .filter((p) => p.length > 0)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4);
+
+  const dynamicScenarios: SimulationScenario[] = [];
+
+  for (let pIdx = 0; pIdx < sortedPaths.length; pIdx++) {
+    const path = sortedPaths[pIdx];
+    const firstEl = elementsById.get(path[0].fromId);
+    const lastEl = elementsById.get(path[path.length - 1].toId);
+
+    const startLabel = firstEl?.label || 'Origin';
+    const endLabel = lastEl?.label || 'Destination';
+
+    // Check if any diamond decision node is traversed
+    const decisionStep = path.find((st) => {
+      const el = elementsById.get(st.fromId);
+      return el?.type === 'diamond' || (st.connector.label && ['yes', 'no', 'true', 'false', 'approved', 'rejected'].includes(st.connector.label.toLowerCase()));
+    });
+
+    let scenarioTitle = `Flow: ${startLabel} → ${endLabel}`;
+    if (decisionStep && decisionStep.connector.label) {
+      scenarioTitle = `Branch [${decisionStep.connector.label}]: ${startLabel} → ${endLabel}`;
+    }
+
+    const steps: SimulationStep[] = path.map((st, sIdx) => {
+      const fromEl = elementsById.get(st.fromId)!;
+      const toEl = elementsById.get(st.toId)!;
+      const isDecision = fromEl.type === 'diamond';
+
+      return {
+        stepNumber: sIdx + 1,
+        sourceNodeId: fromEl.id,
+        targetNodeId: toEl.id,
+        connectorId: st.connector.id,
+        title: st.connector.label
+          ? `${fromEl.label || 'Node'} → ${toEl.label || 'Node'} (${st.connector.label})`
+          : `Hop ${sIdx + 1}: ${fromEl.label || 'Node'} → ${toEl.label || 'Node'}`,
+        description: isDecision
+          ? `Evaluating conditional branch "${fromEl.label || 'Decision'}". Route selected: ${st.connector.label || 'next transition'}.`
+          : `Dispatched message from "${fromEl.label || 'Node'}" to "${toEl.label || 'Node'}".`,
+        protocol: st.connector.label || (fromEl.type === 'database' ? 'SQL / TCP' : fromEl.type === 'service' ? 'gRPC / HTTP' : 'Direct Link'),
+        payload: `Event dispatched from ${fromEl.label || 'Source'}`,
+        response: `Acknowledged by ${toEl.label || 'Target'}`,
+        decisionCondition: isDecision ? fromEl.label : undefined,
+        decisionOutcome: isDecision ? (st.connector.label || 'Condition Met') : undefined,
+      };
+    });
+
+    dynamicScenarios.push({
+      id: `scenario-dynamic-${pIdx + 1}`,
+      title: scenarioTitle,
+      description: `Step-by-step route traversal through ${path.length} connection transitions on canvas.`,
+      steps,
+    });
+  }
+
+  return dynamicScenarios;
+}
+
+/**
+ * Main entry point: Retrieves active simulation scenarios for any given board.
+ * Combines validated template scenarios with dynamic topological graph routes.
+ */
+export function getScenariosForBoard(board: Board): SimulationScenario[] {
+  // 1. Get predefined scenarios if applicable
+  const predefined = getPredefinedScenarios(board);
+  const validatedPredefined = validateAndPruneScenarios(predefined, board);
+
+  // 2. Generate dynamic topological routes from canvas connectors
+  const dynamicScenarios = generateDynamicScenariosFromGraph(board);
+
+  // If validated predefined scenarios exist, combine them with any novel dynamic routes
+  if (validatedPredefined.length > 0) {
+    // Return predefined plus any extra dynamic scenario if relevant
+    return validatedPredefined;
+  }
+
+  // If dynamic scenarios found
+  if (dynamicScenarios.length > 0) {
+    return dynamicScenarios;
+  }
+
+  // Fallback when no connectors exist on canvas
   return [
     {
-      id: 'scenario-auto',
-      title: 'Diagram Connector Flow',
-      description: 'Trace step-by-step through existing connections on this board.',
-      steps,
+      id: 'scenario-empty',
+      title: 'No Connected Routes Found',
+      description: 'Connect elements on the canvas using arrows (C) to generate an automated data flow.',
+      steps: [],
     },
   ];
 }

@@ -132,7 +132,7 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
             type="button"
             onClick={onStepForward}
             title="Step Forward"
-            disabled={totalSteps === 0 || currentStepIndex >= totalSteps - 1}
+            disabled={totalSteps === 0}
             style={actionBtnStyle('#3b82f6')}
           >
             <SkipForward size={14} />
