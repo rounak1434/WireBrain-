@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Server,
   Terminal,
+  Smartphone,
 } from 'lucide-react';
 
 interface SimulationControllerProps {
@@ -30,6 +31,8 @@ interface SimulationControllerProps {
   totalSteps: number;
   currentStep: SimulationStep | null;
   onExitSimulation: () => void;
+  onOpenDevicePreview?: () => void;
+  isWireframe?: boolean;
 }
 
 export const SimulationController: React.FC<SimulationControllerProps> = ({
@@ -47,6 +50,8 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
   totalSteps,
   currentStep,
   onExitSimulation,
+  onOpenDevicePreview,
+  isWireframe = false,
 }) => {
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || scenarios[0];
 
@@ -178,6 +183,32 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
           Hop {totalSteps === 0 ? 0 : currentStepIndex + 1} of {totalSteps}
         </span>
 
+        {/* Device Viewport shortcut for wireframes */}
+        {onOpenDevicePreview && (
+          <button
+            type="button"
+            onClick={onOpenDevicePreview}
+            title="Open interactive screen prototype in device viewport"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              backgroundColor: '#172554',
+              border: '1px solid #3b82f6',
+              borderRadius: 6,
+              color: '#93c5fd',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Smartphone size={12} color="#60a5fa" />
+            <span>Device Viewport</span>
+          </button>
+        )}
+
         {/* Exit Button */}
         <button
           type="button"
@@ -260,7 +291,9 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
           )}
 
           <div style={{ fontSize: 9, color: '#525d6e', textAlign: 'center', marginTop: 2 }}>
-            ⓘ Illustrative data flow simulation. Logical diagram routing trace only.
+            {isWireframe
+              ? 'ⓘ Interactive prototype simulation: navigating between connected screens and UI states.'
+              : 'ⓘ Illustrative data flow simulation. Logical diagram routing trace only.'}
           </div>
         </div>
       )}

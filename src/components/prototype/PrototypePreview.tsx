@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Board, CanvasElement, Connector } from '../../types';
+import { Board, CanvasElement, Connector, SimulationScenario, SimulationStep } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import {
   ArrowLeft,
@@ -13,16 +13,22 @@ import {
   Maximize2,
   Layers,
   ChevronRight,
+  Play,
+  Pause,
+  SkipForward,
+  Activity,
 } from 'lucide-react';
 import { ElementRenderer } from '../canvas/ElementRenderer';
 import { ConnectorRenderer } from '../canvas/ConnectorRenderer';
 import { getBoundingBox } from '../../utils/geometry';
+import { getScenariosForBoard } from '../../utils/simulation';
 
 interface PrototypePreviewProps {
   board: Board;
   allBoards: Board[];
   onExit: () => void;
   theme: ThemeColors;
+  initialMode?: 'interactive' | 'simulate';
 }
 
 export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
@@ -30,6 +36,7 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
   allBoards,
   onExit,
   theme,
+  initialMode = 'interactive',
 }) => {
   const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -59,19 +66,31 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
     return frames.find((f) => f.id === activeFrameId) || frames[0] || null;
   }, [frames, activeFrameId]);
 
-  // Elements belonging to the active frame
+  // Elements belonging to the active frame (with robust boundary matching)
   const focusedElements = useMemo(() => {
     if (!activeFrame) return displayedBoard.elements;
 
     return displayedBoard.elements.filter((el) => {
       if (el.id === activeFrame.id) return true;
-      // Inside frame bounds
-      return (
-        el.x >= activeFrame.x - 20 &&
-        el.x + el.width <= activeFrame.x + activeFrame.width + 20 &&
-        el.y >= activeFrame.y - 20 &&
-        el.y + el.height <= activeFrame.y + activeFrame.height + 20
-      );
+      // Do not include other top-level frames in the single frame focused view
+      if (el.type === 'frame-desktop' || el.type === 'frame-mobile') return false;
+
+      // Belonging check: Center point inside frame bounds OR boundary overlap
+      const elCenterX = el.x + el.width / 2;
+      const elCenterY = el.y + el.height / 2;
+      const centerInFrame =
+        elCenterX >= activeFrame.x - 10 &&
+        elCenterX <= activeFrame.x + activeFrame.width + 10 &&
+        elCenterY >= activeFrame.y - 10 &&
+        elCenterY <= activeFrame.y + activeFrame.height + 10;
+
+      const boundsOverlap =
+        el.x >= activeFrame.x - 30 &&
+        el.x + el.width <= activeFrame.x + activeFrame.width + 30 &&
+        el.y >= activeFrame.y - 30 &&
+        el.y + el.height <= activeFrame.y + activeFrame.height + 30;
+
+      return centerInFrame || boundsOverlap;
     });
   }, [displayedBoard.elements, activeFrame]);
 
@@ -81,6 +100,93 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
     displayedBoard.elements.forEach((el) => map.set(el.id, el));
     return map;
   }, [displayedBoard.elements]);
+
+  // Prototype Simulation State
+  const scenarios = useMemo(() => getScenariosForBoard(displayedBoard), [displayedBoard]);
+  const [activeScenarioId, setActiveScenarioId] = useState<string>(() => scenarios[0]?.id || '');
+  const [isSimPlaying, setIsSimPlaying] = useState<boolean>(() => initialMode === 'simulate');
+  const [simStepIndex, setSimStepIndex] = useState<number>(0);
+  const [simSpeed, setSimSpeed] = useState<number>(1);
+
+  useEffect(() => {
+    if (scenarios.length > 0 && !scenarios.some((s) => s.id === activeScenarioId)) {
+      setActiveScenarioId(scenarios[0].id);
+      setSimStepIndex(0);
+    }
+  }, [scenarios, activeScenarioId]);
+
+  const activeScenario = useMemo(
+    () => scenarios.find((s) => s.id === activeScenarioId) || scenarios[0] || null,
+    [scenarios, activeScenarioId]
+  );
+
+  const currentStep =
+    activeScenario && activeScenario.steps.length > 0
+      ? activeScenario.steps[Math.min(simStepIndex, activeScenario.steps.length - 1)]
+      : null;
+
+  // Auto-play interval for prototype flow simulation
+  useEffect(() => {
+    if (!isSimPlaying || !activeScenario || activeScenario.steps.length === 0) return;
+
+    const intervalMs = Math.round(2500 / simSpeed);
+    const timer = setInterval(() => {
+      setSimStepIndex((prev) => {
+        const next = prev + 1 >= activeScenario.steps.length ? 0 : prev + 1;
+        return next;
+      });
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [isSimPlaying, activeScenario, simSpeed]);
+
+  // Synchronize screen view and overlays when simulation steps change
+  useEffect(() => {
+    if (!currentStep) return;
+
+    // Resolve target screen frame
+    let targetFrame = frames.find((f) => f.id === currentStep.targetNodeId);
+    if (!targetFrame) {
+      const targetElement = displayedBoard.elements.find((e) => e.id === currentStep.targetNodeId);
+      if (targetElement) {
+        targetFrame = frames.find(
+          (f) =>
+            targetElement.x >= f.x - 30 &&
+            targetElement.x + targetElement.width <= f.x + f.width + 30 &&
+            targetElement.y >= f.y - 30 &&
+            targetElement.y + targetElement.height <= f.y + f.height + 30
+        );
+      }
+    }
+
+    if (targetFrame && targetFrame.id !== activeFrameId) {
+      setActiveFrameId(targetFrame.id);
+    }
+
+    // Modal check
+    const sourceEl = displayedBoard.elements.find((e) => e.id === currentStep.sourceNodeId);
+    if (sourceEl?.prototypeAction === 'modal') {
+      setActiveOverlay(sourceEl.prototypePayload || 'Interactive Sheet');
+    } else if (!sourceEl || sourceEl.prototypeAction !== 'modal') {
+      setActiveOverlay(null);
+    }
+  }, [currentStep, frames, displayedBoard.elements]);
+
+  const handleStepForward = () => {
+    if (!activeScenario || activeScenario.steps.length === 0) return;
+    setIsSimPlaying(false);
+    setSimStepIndex((s) => (s + 1 >= activeScenario.steps.length ? 0 : s + 1));
+  };
+
+  const handleRestart = () => {
+    setCurrentBoardId(board.id);
+    setHistoryStack([board.id]);
+    setSimStepIndex(0);
+    setIsSimPlaying(false);
+    if (frames.length > 0) setActiveFrameId(frames[0].id);
+    setActiveOverlay(null);
+    showToast('Prototype reset to initial state');
+  };
 
   // Handle interactions on prototype elements
   const handleElementClick = (el: CanvasElement) => {
@@ -92,7 +198,7 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
     }
 
     if (el.prototypeAction === 'navigate' && el.prototypeTarget) {
-      // Check if target is another board
+      // 1. Check if target is another board
       const targetBoard = allBoards.find((b) => b.id === el.prototypeTarget);
       if (targetBoard) {
         setHistoryStack((prev) => [...prev, targetBoard.id]);
@@ -101,8 +207,23 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
         return;
       }
 
-      // Check if target is a frame / screen on the current board
-      const targetFrame = frames.find((f) => f.id === el.prototypeTarget);
+      // 2. Check if target is a frame / screen on the current board
+      let targetFrame = frames.find((f) => f.id === el.prototypeTarget);
+
+      // 3. If target is an element inside another frame, transition to that containing frame
+      if (!targetFrame) {
+        const targetElement = displayedBoard.elements.find((e) => e.id === el.prototypeTarget);
+        if (targetElement) {
+          targetFrame = frames.find(
+            (f) =>
+              targetElement.x >= f.x - 30 &&
+              targetElement.x + targetElement.width <= f.x + f.width + 30 &&
+              targetElement.y >= f.y - 30 &&
+              targetElement.y + targetElement.height <= f.y + f.height + 30
+          );
+        }
+      }
+
       if (targetFrame) {
         setActiveFrameId(targetFrame.id);
         showToast(`Transitioned to: ${targetFrame.label || 'Screen'}`);
@@ -166,6 +287,7 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
           justifyContent: 'space-between',
           padding: '0 16px',
           zIndex: 50,
+          flexShrink: 0,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -209,67 +331,166 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
           </span>
         </div>
 
-        {/* Screen Switcher for multi-screen boards */}
-        {frames.length > 1 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              backgroundColor: '#0d1017',
-              padding: '3px 6px',
-              borderRadius: 6,
-              border: '1px solid #1c2230',
-            }}
-          >
-            {frames.map((fr, idx) => {
-              const isSelected = activeFrame?.id === fr.id;
-              return (
-                <button
-                  key={fr.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveFrameId(fr.id);
-                    setViewMode('focused');
+        {/* Center: Multi-Screen Switcher & Prototype Flow Simulation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Screen Switcher for multi-screen boards */}
+          {frames.length > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: '#0d1017',
+                padding: '3px 6px',
+                borderRadius: 6,
+                border: '1px solid #1c2230',
+              }}
+            >
+              {frames.map((fr, idx) => {
+                const isSelected = activeFrame?.id === fr.id;
+                return (
+                  <button
+                    key={fr.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveFrameId(fr.id);
+                      setViewMode('focused');
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: 'none',
+                      backgroundColor: isSelected ? '#1e293b' : 'transparent',
+                      color: isSelected ? '#38bdf8' : '#7f8ea3',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {fr.type === 'frame-mobile' ? '📱 ' : '💻 '}
+                    {fr.label || `Screen ${idx + 1}`}
+                  </button>
+                );
+              })}
+
+              <div style={{ width: 1, height: 16, backgroundColor: '#202636', margin: '0 4px' }} />
+
+              <button
+                type="button"
+                onClick={() => setViewMode((m) => (m === 'focused' ? 'canvas' : 'focused'))}
+                title="Toggle Full Canvas Flow"
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: 'none',
+                  backgroundColor: viewMode === 'canvas' ? '#172554' : 'transparent',
+                  color: viewMode === 'canvas' ? '#60a5fa' : '#8b9bb4',
+                  cursor: 'pointer',
+                }}
+              >
+                All Screens Flow
+              </button>
+            </div>
+          )}
+
+          {/* Prototype Simulation Controls in Preview */}
+          {activeScenario && activeScenario.steps.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: '#0c1018',
+                border: '1px solid #1f2b3e',
+                padding: '3px 10px',
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Activity size={13} color={isSimPlaying ? '#10b981' : '#38bdf8'} />
+                <select
+                  value={activeScenarioId}
+                  onChange={(e) => {
+                    setActiveScenarioId(e.target.value);
+                    setSimStepIndex(0);
                   }}
                   style={{
-                    padding: '3px 8px',
+                    backgroundColor: '#121824',
+                    border: '1px solid #25334c',
                     borderRadius: 4,
+                    padding: '3px 6px',
+                    color: '#e2edfc',
                     fontSize: 11,
                     fontWeight: 600,
+                    outline: 'none',
+                    maxWidth: 180,
+                  }}
+                >
+                  {scenarios.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSimPlaying((p) => !p)}
+                  title={isSimPlaying ? 'Pause Flow' : 'Play Flow'}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
                     border: 'none',
-                    backgroundColor: isSelected ? '#1e293b' : 'transparent',
-                    color: isSelected ? '#38bdf8' : '#7f8ea3',
+                    backgroundColor: isSimPlaying ? '#ef4444' : '#10b981',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     cursor: 'pointer',
                   }}
                 >
-                  {fr.type === 'frame-mobile' ? '📱 ' : '💻 '}
-                  {fr.label || `Screen ${idx + 1}`}
+                  {isSimPlaying ? <Pause size={12} /> : <Play size={12} />}
                 </button>
-              );
-            })}
 
-            <div style={{ width: 1, height: 16, backgroundColor: '#202636', margin: '0 4px' }} />
+                <button
+                  type="button"
+                  onClick={handleStepForward}
+                  title="Next Step in Flow"
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    border: 'none',
+                    backgroundColor: '#1f293d',
+                    color: '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <SkipForward size={12} />
+                </button>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => setViewMode((m) => (m === 'focused' ? 'canvas' : 'focused'))}
-              title="Toggle Full Canvas Flow"
-              style={{
-                padding: '3px 8px',
-                borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 600,
-                border: 'none',
-                backgroundColor: viewMode === 'canvas' ? '#172554' : 'transparent',
-                color: viewMode === 'canvas' ? '#60a5fa' : '#8b9bb4',
-                cursor: 'pointer',
-              }}
-            >
-              All Screens Flow
-            </button>
-          </div>
-        )}
+              <span
+                style={{
+                  fontSize: 11,
+                  color: '#8b9bb4',
+                  fontVariantNumeric: 'tabular-nums',
+                  padding: '0 4px',
+                }}
+              >
+                Step {simStepIndex + 1}/{activeScenario.steps.length}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Action toast */}
         {toastMessage && (
@@ -310,7 +531,15 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
           >
             <ZoomOut size={13} />
           </button>
-          <span style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums', width: 38, textAlign: 'center' }}>
+          <span
+            style={{
+              fontSize: 11,
+              color: '#94a3b8',
+              fontVariantNumeric: 'tabular-nums',
+              width: 38,
+              textAlign: 'center',
+            }}
+          >
             {Math.round(zoom * 100)}%
           </span>
           <button
@@ -350,12 +579,7 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              setCurrentBoardId(board.id);
-              setHistoryStack([board.id]);
-              if (frames.length > 0) setActiveFrameId(frames[0].id);
-              setActiveOverlay(null);
-            }}
+            onClick={handleRestart}
             title="Restart Prototype Flow"
             style={{
               display: 'flex',
@@ -411,6 +635,8 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
               {focusedElements.map((el) => {
                 if (el.hidden) return null;
                 const isInteractive = el.type === 'button' || Boolean(el.prototypeAction);
+                const isStepActive =
+                  currentStep?.sourceNodeId === el.id || currentStep?.targetNodeId === el.id;
 
                 // Compute offset relative to active frame
                 const relX = el.id === activeFrame.id ? 0 : el.x - activeFrame.x;
@@ -428,7 +654,10 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
                       height: el.height,
                       cursor: isInteractive ? 'pointer' : 'default',
                       zIndex: el.id === activeFrame.id ? 1 : 2,
-                      transition: 'transform 0.1s ease',
+                      transition: 'transform 0.1s ease, box-shadow 0.2s ease',
+                      boxShadow: isStepActive ? '0 0 18px rgba(56, 189, 248, 0.75)' : 'none',
+                      outline: isStepActive ? '2px solid #38bdf8' : 'none',
+                      borderRadius: el.cornerRadius || 4,
                     }}
                     onMouseEnter={(e) => {
                       if (isInteractive) e.currentTarget.style.transform = 'scale(0.99)';
@@ -462,48 +691,45 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
                   zIndex: 2,
                 }}
               >
-                <defs>
-                  <marker
-                    id="arrow-end-proto"
-                    viewBox="0 0 10 10"
-                    refX="8"
-                    refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6" />
-                  </marker>
-                </defs>
-                {displayedBoard.connectors.map((conn) => (
+                {displayedBoard.connectors.map((c) => (
                   <ConnectorRenderer
-                    key={conn.id}
-                    connector={{ ...conn, color: '#3b82f6' }}
+                    key={c.id}
+                    connector={c}
                     elementsById={elementsById}
                     isSelected={false}
-                    onSelect={() => {}}
                   />
                 ))}
               </svg>
 
-              {/* Elements Layer */}
+              {/* Elements Layer in Flow View */}
               {displayedBoard.elements.map((el) => {
                 if (el.hidden) return null;
                 const isInteractive = el.type === 'button' || Boolean(el.prototypeAction);
+                const isFrame = el.type === 'frame-desktop' || el.type === 'frame-mobile';
+                const isSelectedFrame = isFrame && activeFrame?.id === el.id;
 
                 return (
                   <div
                     key={el.id}
-                    onClick={() => handleElementClick(el)}
+                    onClick={() => {
+                      if (isFrame) {
+                        setActiveFrameId(el.id);
+                        setViewMode('focused');
+                      } else {
+                        handleElementClick(el);
+                      }
+                    }}
                     style={{
                       position: 'absolute',
                       left: el.x,
                       top: el.y,
                       width: el.width,
                       height: el.height,
-                      cursor: isInteractive ? 'pointer' : 'default',
-                      zIndex: el.type.startsWith('frame') ? 1 : 3,
+                      cursor: isInteractive || isFrame ? 'pointer' : 'default',
+                      zIndex: isFrame ? 1 : 3,
                       transition: 'transform 0.1s ease',
+                      outline: isSelectedFrame ? '2px solid #38bdf8' : 'none',
+                      outlineOffset: 2,
                     }}
                     onMouseEnter={(e) => {
                       if (isInteractive) e.currentTarget.style.transform = 'scale(0.99)';
@@ -519,6 +745,101 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
             </div>
           )}
         </div>
+
+        {/* Step Telemetry Floating Card */}
+        {currentStep && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 60,
+              backgroundColor: 'rgba(8, 11, 16, 0.95)',
+              border: '1px solid #233148',
+              borderRadius: 10,
+              padding: '10px 18px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.85), 0 0 20px rgba(59, 130, 246, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              maxWidth: 620,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                border: '1px solid #3b82f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#60a5fa',
+                fontWeight: 700,
+                fontSize: 12,
+                flexShrink: 0,
+              }}
+            >
+              {simStepIndex + 1}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>
+                  {currentStep.title}
+                </span>
+                {currentStep.protocol && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      backgroundColor: '#131b28',
+                      color: '#60a5fa',
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {currentStep.protocol}
+                  </span>
+                )}
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  lineHeight: 1.35,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {currentStep.description}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleStepForward}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 5,
+                backgroundColor: '#1d273a',
+                border: '1px solid #33435f',
+                color: '#e2edfc',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Next Step →
+            </button>
+          </div>
+        )}
 
         {/* Interactive Modal Sheet Overlay */}
         {activeOverlay && (

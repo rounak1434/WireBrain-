@@ -1058,6 +1058,15 @@ export const App: React.FC = () => {
               setEditorMode('edit');
               setIsSimRunning(false);
             }}
+            onOpenDevicePreview={
+              activeBoard.elements.some((e) => e.type.startsWith('frame'))
+                ? () => {
+                    setEditorMode('prototype');
+                    setIsSimRunning(false);
+                  }
+                : undefined
+            }
+            isWireframe={activeBoard.elements.some((e) => e.type.startsWith('frame'))}
           />
         )}
       </div>

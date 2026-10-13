@@ -48,7 +48,24 @@ export function loadProjectFromStorage(): Project {
     if (!raw) return defaultProject;
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.boards) && parsed.boards.length > 0) {
-      return parsed;
+      // Reconcile starter boards if they are using outdated starter templates
+      const updatedBoards = parsed.boards.map((b: any) => {
+        if (b.id === 'board-mobile') {
+          const hasScreen2 = Array.isArray(b.elements) && b.elements.some((e: any) => e.id === 'mob-frame-2');
+          const hasStrayConn = Array.isArray(b.connectors) && b.connectors.some((c: any) => c.toId === 'mob-note-card');
+          if (!hasScreen2 || hasStrayConn) {
+            const freshMobileBoard = defaultProject.boards.find((db) => db.id === 'board-mobile');
+            if (freshMobileBoard) {
+              return freshMobileBoard;
+            }
+          }
+        }
+        return b;
+      });
+      return {
+        ...parsed,
+        boards: updatedBoards,
+      };
     }
   } catch (err) {
     console.error('Failed to parse saved project from storage:', err);
