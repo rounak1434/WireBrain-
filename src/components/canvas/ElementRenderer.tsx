@@ -7,22 +7,49 @@ import {
   Layers,
   Image as ImageIcon,
   CheckCircle,
+  Upload,
 } from 'lucide-react';
+import { getCachedAssetDataUrl, getAsset } from '../../utils/assets';
 
 interface ElementRendererProps {
   element: CanvasElement;
   isSelected: boolean;
   onUpdateText?: (id: string, newText: string) => void;
+  onSelectImageFile?: (elementId: string) => void;
 }
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
   element,
   isSelected,
   onUpdateText,
+  onSelectImageFile,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [textDraft, setTextDraft] = useState(element.label || '');
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(() => {
+    if (element.src) return element.src;
+    if (element.assetId) return getCachedAssetDataUrl(element.assetId);
+    return null;
+  });
+
+  useEffect(() => {
+    if (element.src) {
+      setResolvedSrc(element.src);
+    } else if (element.assetId) {
+      const cached = getCachedAssetDataUrl(element.assetId);
+      if (cached) {
+        setResolvedSrc(cached);
+      } else {
+        getAsset(element.assetId).then((asset) => {
+          if (asset) setResolvedSrc(asset.data);
+        });
+      }
+    } else {
+      setResolvedSrc(null);
+    }
+  }, [element.src, element.assetId]);
 
   useEffect(() => {
     setTextDraft(element.label || '');
@@ -511,43 +538,110 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
         </div>
       )}
 
-      {/* 11. Image Placeholder */}
+      {/* 11. Image Element */}
       {type === 'image' && (
         <div
           style={{
             width: '100%',
             height: '100%',
-            backgroundColor: fillColor,
-            border: `${strokeWidth}px solid ${strokeColor}`,
+            backgroundColor: fillColor || '#0f1219',
+            border: `${strokeWidth}px solid ${strokeColor || '#232938'}`,
             borderRadius: cornerRadius,
             position: 'relative',
             overflow: 'hidden',
           }}
         >
-          <svg
-            width="100%"
-            height="100%"
-            style={{ position: 'absolute', inset: 0, opacity: 0.25 }}
-          >
-            <line x1="0" y1="0" x2={width} y2={height} stroke="#ffffff" strokeWidth="1" strokeDasharray="4,4" />
-            <line x1="0" y1={height} x2={width} y2="0" stroke="#ffffff" strokeWidth="1" strokeDasharray="4,4" />
-          </svg>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-            }}
-          >
-            <ImageIcon size={20} color="#717d91" />
-            <span style={{ fontSize: 11, color: '#8895a8', fontWeight: 500, padding: '0 8px', textAlign: 'center' }}>
-              {label || 'Image Mockup'}
-            </span>
-          </div>
+          {resolvedSrc ? (
+            <>
+              <img
+                src={resolvedSrc}
+                alt={label || 'Canvas image'}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: element.imageFit || 'cover',
+                  display: 'block',
+                  pointerEvents: 'none',
+                }}
+              />
+              {label && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(4px)',
+                    padding: '3px 8px',
+                    fontSize: 10,
+                    color: '#f8fafc',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {label}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <svg
+                width="100%"
+                height="100%"
+                style={{ position: 'absolute', inset: 0, opacity: 0.2 }}
+              >
+                <line x1="0" y1="0" x2={width} y2={height} stroke="#ffffff" strokeWidth="1" strokeDasharray="4,4" />
+                <line x1="0" y1={height} x2={width} y2="0" stroke="#ffffff" strokeWidth="1" strokeDasharray="4,4" />
+              </svg>
+              <div
+                onClick={(e) => {
+                  if (onSelectImageFile) {
+                    e.stopPropagation();
+                    onSelectImageFile(element.id);
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: 8,
+                  cursor: onSelectImageFile ? 'pointer' : 'default',
+                }}
+              >
+                <ImageIcon size={22} color="#717d91" />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: '#8b97a8',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {label || 'Choose Image'}
+                </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontFamily: 'var(--font-mono)',
+                    color: '#525e70',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    padding: '1px 5px',
+                    borderRadius: 3,
+                  }}
+                >
+                  Drop or Click
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
 

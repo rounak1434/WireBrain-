@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   CanvasElement,
   Connector,
@@ -7,6 +7,7 @@ import {
   PrototypeActionType,
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
+import { importLocalImageFile } from '../../utils/assets';
 import {
   Trash2,
   Copy,
@@ -22,6 +23,10 @@ import {
   Sparkles,
   Play,
   Moon,
+  Lock,
+  Unlock,
+  UploadCloud,
+  RotateCcw,
 } from 'lucide-react';
 
 interface PropertiesInspectorProps {
@@ -90,6 +95,7 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
 }) => {
   const isMulti = selectedElements.length > 1;
   const single = selectedElements.length === 1 ? selectedElements[0] : null;
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <aside
@@ -190,17 +196,188 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                 <NumberInput
                   label="W"
                   value={Math.round(single.width)}
-                  onChange={(v) => onUpdateElement(single.id, { width: Math.max(10, v) })}
+                  onChange={(v) => {
+                    const newW = Math.max(10, v);
+                    if (single.aspectRatioLocked && single.width > 0 && single.height > 0) {
+                      const ratio = single.width / single.height;
+                      onUpdateElement(single.id, { width: newW, height: Math.max(10, Math.round(newW / ratio)) });
+                    } else {
+                      onUpdateElement(single.id, { width: newW });
+                    }
+                  }}
                   theme={theme}
                 />
                 <NumberInput
                   label="H"
                   value={Math.round(single.height)}
-                  onChange={(v) => onUpdateElement(single.id, { height: Math.max(10, v) })}
+                  onChange={(v) => {
+                    const newH = Math.max(10, v);
+                    if (single.aspectRatioLocked && single.width > 0 && single.height > 0) {
+                      const ratio = single.width / single.height;
+                      onUpdateElement(single.id, { height: newH, width: Math.max(10, Math.round(newH * ratio)) });
+                    } else {
+                      onUpdateElement(single.id, { height: newH });
+                    }
+                  }}
                   theme={theme}
                 />
               </div>
+
+              {/* Aspect Ratio Lock Toggle */}
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, color: theme.textMuted }}>Aspect Ratio Lock</span>
+                <button
+                  type="button"
+                  onClick={() => onUpdateElement(single.id, { aspectRatioLocked: !single.aspectRatioLocked })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    backgroundColor: single.aspectRatioLocked ? '#172554' : theme.surfaceBg,
+                    border: single.aspectRatioLocked ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
+                    color: single.aspectRatioLocked ? '#60a5fa' : theme.textMuted,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {single.aspectRatioLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                  {single.aspectRatioLocked ? 'Locked' : 'Unlocked'}
+                </button>
+              </div>
             </Section>
+
+            {/* Image Asset Controls when type === 'image' */}
+            {single.type === 'image' && (
+              <Section title="Image Asset & Fit" theme={theme}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <input
+                    ref={imageFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const asset = await importLocalImageFile(file);
+                        onUpdateElement(single.id, {
+                          assetId: asset.assetId,
+                          originalWidth: asset.width,
+                          originalHeight: asset.height,
+                          aspectRatioLocked: true,
+                          label: single.label || file.name.replace(/\.[^/.]+$/, ""),
+                        });
+                      } catch (err) {
+                        console.error('Failed to import local image:', err);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+
+                  {/* Choose / Replace Image Button */}
+                  <button
+                    type="button"
+                    onClick={() => imageFileInputRef.current?.click()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      backgroundColor: '#172554',
+                      border: `1px solid ${theme.accent}`,
+                      color: '#93c5fd',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    <UploadCloud size={14} />
+                    {single.assetId || single.src ? 'Replace Local Image…' : 'Choose Local Image…'}
+                  </button>
+
+                  {/* Image Fit Setting */}
+                  <div>
+                    <label style={labelStyle(theme)}>Object Fit Mode</label>
+                    <select
+                      value={single.imageFit || 'cover'}
+                      onChange={(e) => onUpdateElement(single.id, { imageFit: e.target.value as any })}
+                      style={selectStyle(theme)}
+                    >
+                      <option value="cover">Cover (Fill & Crop nicely)</option>
+                      <option value="contain">Contain (Fit within frame)</option>
+                      <option value="fill">Fill (Stretch exact dimensions)</option>
+                    </select>
+                  </div>
+
+                  {/* Original Dimensions & Reset */}
+                  {single.originalWidth && single.originalHeight ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 8px',
+                        backgroundColor: '#0a0d14',
+                        borderRadius: 4,
+                        border: '1px solid #1a2233',
+                        fontSize: 11,
+                        color: '#8b9bb4',
+                      }}
+                    >
+                      <span>Original: {single.originalWidth} × {single.originalHeight}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onUpdateElement(single.id, {
+                            width: single.originalWidth,
+                            height: single.originalHeight,
+                          })
+                        }
+                        title="Reset canvas dimensions to native image resolution"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#60a5fa',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <RotateCcw size={11} /> Reset
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {/* Clear Asset */}
+                  {(single.assetId || single.src) && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateElement(single.id, { assetId: undefined, src: undefined })}
+                      style={{
+                        padding: '5px 8px',
+                        borderRadius: 4,
+                        fontSize: 11,
+                        color: '#f87171',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #3f1d24',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Remove Image (Reset to Placeholder)
+                    </button>
+                  )}
+                </div>
+              </Section>
+            )}
 
             {/* Typography / Content */}
             <Section title="Text & Content" theme={theme}>

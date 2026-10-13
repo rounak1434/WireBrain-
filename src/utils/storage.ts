@@ -1,5 +1,6 @@
 import { Project, ThemeMode } from '../types';
 import { defaultProject } from '../data/starterBoards';
+import { getAllAssets, saveAllAssets } from './assets';
 
 // Primary WireBrain keys with safe legacy fallback
 const STORAGE_KEY = 'wirebrain_project_v1';
@@ -119,7 +120,17 @@ export function saveTutorialProgress(progress: Record<string, boolean>): void {
 }
 
 export async function exportProjectToFile(project: Project): Promise<boolean> {
-  const jsonStr = JSON.stringify(project, null, 2);
+  let projectWithAssets: Project = { ...project };
+  try {
+    const allAssets = await getAllAssets();
+    if (allAssets.length > 0) {
+      projectWithAssets.assets = allAssets;
+    }
+  } catch (err) {
+    console.warn('Could not collect assets for export:', err);
+  }
+
+  const jsonStr = JSON.stringify(projectWithAssets, null, 2);
   const fileName = `${project.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}.wirebrain.json`;
 
   if (window.electronAPI) {
@@ -162,6 +173,9 @@ export async function importProjectFromFile(): Promise<Project | null> {
       if (openRes && openRes.content) {
         const parsed = JSON.parse(openRes.content);
         if (parsed && Array.isArray(parsed.boards)) {
+          if (parsed.assets && Array.isArray(parsed.assets)) {
+            await saveAllAssets(parsed.assets);
+          }
           return parsed;
         }
       }
@@ -176,17 +190,20 @@ export async function importProjectFromFile(): Promise<Project | null> {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,application/json';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) {
         resolve(null);
         return;
       }
       const reader = new FileReader();
-      reader.onload = (re) => {
+      reader.onload = async (re) => {
         try {
           const parsed = JSON.parse(re.target?.result as string);
           if (parsed && Array.isArray(parsed.boards)) {
+            if (parsed.assets && Array.isArray(parsed.assets)) {
+              await saveAllAssets(parsed.assets);
+            }
             resolve(parsed);
           } else {
             resolve(null);

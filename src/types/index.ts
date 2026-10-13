@@ -44,6 +44,12 @@ export interface CanvasElement {
   prototypeTarget?: string; // target board ID, frame ID, or modal title
   prototypePayload?: string;
   customData?: Record<string, any>;
+  assetId?: string;
+  src?: string;
+  imageFit?: 'contain' | 'cover' | 'fill';
+  aspectRatioLocked?: boolean;
+  originalWidth?: number;
+  originalHeight?: number;
 }
 
 export interface Connector {
@@ -59,6 +65,17 @@ export interface Connector {
   dashed?: boolean;
   arrowStart?: boolean;
   arrowEnd?: boolean;
+}
+
+export interface ProjectAsset {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string; // Base64 data URL
+  size: number;
+  width?: number;
+  height?: number;
+  createdAt: number;
 }
 
 export interface Board {
@@ -78,6 +95,7 @@ export interface Project {
   version: string;
   boards: Board[];
   activeBoardId: string;
+  assets?: Record<string, ProjectAsset>;
 }
 
 export type ToolMode =
@@ -97,7 +115,7 @@ export type ToolMode =
   | 'frame-desktop'
   | 'frame-mobile';
 
-export type ActiveSidebarTab = 'boards' | 'elements' | 'layers' | 'tutorial' | 'shortcuts';
+export type ActiveSidebarTab = 'boards' | 'elements' | 'layers' | 'examples' | 'tutorial' | 'shortcuts';
 
 export type ThemeMode = 'pure-black' | 'midnight';
 
@@ -115,6 +133,8 @@ export interface SimulationStep {
   response?: string;
   decisionCondition?: string;
   decisionOutcome?: string;
+  latency?: string;
+  status?: string;
 }
 
 export interface SimulationScenario {
@@ -123,3 +143,4 @@ export interface SimulationScenario {
   description: string;
   steps: SimulationStep[];
 }
+

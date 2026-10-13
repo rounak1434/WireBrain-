@@ -12,7 +12,8 @@ import { ElementRenderer } from './ElementRenderer';
 import { ConnectorRenderer } from './ConnectorRenderer';
 import { ResizeHandles, HandleDirection } from './ResizeHandles';
 import { AnchorPoints } from './AnchorPoints';
-import { snap, rectIntersectsRect, getAnchorPoint } from '../../utils/geometry';
+import { snap, rectIntersectsRect, getAnchorPoint, getPointAlongConnector } from '../../utils/geometry';
+import { importLocalImageFile } from '../../utils/assets';
 
 interface CanvasProps {
   elements: CanvasElement[];
@@ -98,6 +99,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   const elementsById = new Map<string, CanvasElement>();
   elements.forEach((el) => elementsById.set(el.id, el));
 
+  // Canvas image file picker ref and target element
+  const canvasFileInputRef = useRef<HTMLInputElement>(null);
+  const targetImageElementId = useRef<string | null>(null);
+
   // Convert screen coordinates to canvas world coordinates
   const screenToWorld = useCallback(
     (clientX: number, clientY: number) => {
@@ -111,6 +116,129 @@ export const Canvas: React.FC<CanvasProps> = ({
       };
     },
     [pan, zoom]
+  );
+
+  const handleTriggerImagePicker = useCallback((elementId: string) => {
+    targetImageElementId.current = elementId;
+    canvasFileInputRef.current?.click();
+  }, []);
+
+  const handleCanvasFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const targetId = targetImageElementId.current;
+      targetImageElementId.current = null;
+      e.target.value = '';
+
+      try {
+        const asset = await importLocalImageFile(file);
+        if (targetId) {
+          onUpdateElements(
+            elements.map((el) =>
+              el.id === targetId
+                ? {
+                    ...el,
+                    assetId: asset.assetId,
+                    originalWidth: asset.width,
+                    originalHeight: asset.height,
+                    aspectRatioLocked: true,
+                    label: el.label || file.name.replace(/\.[^/.]+$/, ''),
+                  }
+                : el
+            )
+          );
+        }
+      } catch (err) {
+        console.error('Failed to import image into element:', err);
+      }
+    },
+    [elements, onUpdateElements]
+  );
+
+  const handleDropFiles = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const files = Array.from(e.dataTransfer.files);
+      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+      if (imageFiles.length === 0) return;
+
+      const world = screenToWorld(e.clientX, e.clientY);
+
+      // Check if dropped directly on an existing image element
+      const targetEl = elements.find(
+        (el) =>
+          !el.hidden &&
+          !el.locked &&
+          world.x >= el.x &&
+          world.x <= el.x + el.width &&
+          world.y >= el.y &&
+          world.y <= el.y + el.height
+      );
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        try {
+          const asset = await importLocalImageFile(file);
+
+          if (i === 0 && targetEl && targetEl.type === 'image') {
+            // Replace hovered image element
+            onUpdateElements(
+              elements.map((el) =>
+                el.id === targetEl.id
+                  ? {
+                      ...el,
+                      assetId: asset.assetId,
+                      originalWidth: asset.width,
+                      originalHeight: asset.height,
+                    }
+                  : el
+              )
+            );
+            onSelectElements([targetEl.id]);
+          } else {
+            // Add as new image element
+            const maxW = 480;
+            const maxH = 360;
+            let w = asset.width || 280;
+            let h = asset.height || 200;
+            if (w > maxW || h > maxH) {
+              const scale = Math.min(maxW / w, maxH / h);
+              w = Math.round(w * scale);
+              h = Math.round(h * scale);
+            }
+
+            const newEl: CanvasElement = {
+              id: `el-img-${Date.now()}-${i}`,
+              type: 'image',
+              x: Math.round(world.x - w / 2) + i * 20,
+              y: Math.round(world.y - h / 2) + i * 20,
+              width: w,
+              height: h,
+              label: file.name.replace(/\.[^/.]+$/, ''),
+              assetId: asset.assetId,
+              originalWidth: asset.width,
+              originalHeight: asset.height,
+              aspectRatioLocked: true,
+              imageFit: 'cover',
+              fillColor: '#0f121a',
+              strokeColor: '#252c3c',
+              strokeWidth: 1,
+              cornerRadius: 6,
+            };
+
+            onUpdateElements([...elements, newEl]);
+            onSelectElements([newEl.id]);
+          }
+        } catch (err) {
+          console.error('Failed to import dropped image:', err);
+        }
+      }
+    },
+    [elements, onUpdateElements, onSelectElements, screenToWorld]
   );
 
   // Global space key handler
@@ -333,6 +461,29 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
       }
 
+      if (initialResizeElement.aspectRatioLocked && initialResizeElement.width > 0 && initialResizeElement.height > 0) {
+        const aspect = initialResizeElement.width / initialResizeElement.height;
+        if (resizeDir === 'e' || resizeDir === 'w') {
+          nextH = Math.max(minSize, Math.round(nextW / aspect));
+        } else if (resizeDir === 's' || resizeDir === 'n') {
+          nextW = Math.max(minSize, Math.round(nextH * aspect));
+        } else {
+          const dw = Math.abs(nextW - initialResizeElement.width);
+          const dh = Math.abs(nextH - initialResizeElement.height);
+          if (dw >= dh) {
+            nextH = Math.max(minSize, Math.round(nextW / aspect));
+          } else {
+            nextW = Math.max(minSize, Math.round(nextH * aspect));
+          }
+        }
+        if (resizeDir.includes('n')) {
+          nextY = initialResizeElement.y + (initialResizeElement.height - nextH);
+        }
+        if (resizeDir.includes('w')) {
+          nextX = initialResizeElement.x + (initialResizeElement.width - nextW);
+        }
+      }
+
       nextX = snap(nextX, gridSize, snapToGrid);
       nextY = snap(nextY, gridSize, snapToGrid);
       nextW = snap(nextW, gridSize, snapToGrid);
@@ -419,15 +570,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     const conn = connectors.find((c) => c.id === activeSimulationStep.connectorId);
 
     if (sEl && tEl) {
-      const fromPt = conn
-        ? getAnchorPoint(sEl, conn.fromAnchor)
-        : { x: sEl.x + sEl.width / 2, y: sEl.y + sEl.height / 2 };
-      const toPt = conn
-        ? getAnchorPoint(tEl, conn.toAnchor)
-        : { x: tEl.x + tEl.width / 2, y: tEl.y + tEl.height / 2 };
-
-      tokenX = fromPt.x + (toPt.x - fromPt.x) * tokenProgress;
-      tokenY = fromPt.y + (toPt.y - fromPt.y) * tokenProgress;
+      const pt = getPointAlongConnector(conn, sEl, tEl, tokenProgress);
+      tokenX = pt.x;
+      tokenY = pt.y;
       showToken = true;
     }
   }
@@ -440,6 +585,11 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }}
+      onDrop={handleDropFiles}
       style={{
         flex: 1,
         height: '100%',
@@ -449,6 +599,14 @@ export const Canvas: React.FC<CanvasProps> = ({
         cursor: getCursor(),
       }}
     >
+      {/* Hidden file input for canvas image element triggers */}
+      <input
+        ref={canvasFileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleCanvasFileInputChange}
+      />
       {/* Background Grid Pattern */}
       {showGrid && (
         <div
@@ -608,6 +766,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 element={el}
                 isSelected={isSelected}
                 onUpdateText={onUpdateElementText}
+                onSelectImageFile={handleTriggerImagePicker}
               />
 
               {/* 8 Resize Handles on single selected element */}
