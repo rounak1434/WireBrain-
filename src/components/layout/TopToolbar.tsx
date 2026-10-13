@@ -90,15 +90,12 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
 
   const isWireframeBoard =
     activeBoard &&
-    (activeBoard.id.includes('web') ||
+    (activeBoard.boardType === 'website' ||
+      activeBoard.boardType === 'mobile' ||
+      activeBoard.id.includes('web') ||
       activeBoard.id.includes('mob') ||
       activeBoard.elements.some((el) => el.type === 'frame-desktop' || el.type === 'frame-mobile'));
 
-  const isDiagramBoard =
-    activeBoard &&
-    (activeBoard.id.includes('system') ||
-      activeBoard.connectors.length > 0 ||
-      activeBoard.elements.some((el) => el.type === 'service' || el.type === 'diamond' || el.type === 'cylinder'));
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -316,38 +313,45 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
 
       {/* Right: Simulation/Preview Modes, Zoom, Snapping, Export */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Mode Actions based on board type */}
-        {isDiagramBoard && (
-          <button
-            type="button"
-            onClick={() => onSetEditorMode(editorMode === 'simulate' ? 'edit' : 'simulate')}
-            title="Simulate logical data flow along connectors"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: editorMode === 'simulate' ? '#10b981' : theme.surfaceBg,
-              border: `1px solid ${editorMode === 'simulate' ? '#10b981' : theme.borderStrong}`,
-              borderRadius: 6,
-              padding: '5px 10px',
-              color: '#ffffff',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: editorMode === 'simulate' ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Activity size={13} color={editorMode === 'simulate' ? '#ffffff' : '#38bdf8'} />
-            <span>{editorMode === 'simulate' ? 'Exit Simulate' : 'Simulate'}</span>
-          </button>
-        )}
+        {/* Simulate Mode Action: Accessible on ALL boards */}
+        <button
+          type="button"
+          onClick={() => onSetEditorMode(editorMode === 'simulate' ? 'edit' : 'simulate')}
+          title={
+            editorMode === 'simulate'
+              ? 'Exit simulation mode (Esc)'
+              : 'Simulate logical data flow or prototype navigation'
+          }
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: editorMode === 'simulate' ? '#059669' : theme.surfaceBg,
+            border: `1px solid ${editorMode === 'simulate' ? '#10b981' : theme.borderStrong}`,
+            borderRadius: 6,
+            padding: '5px 11px',
+            color: '#ffffff',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: editorMode === 'simulate' ? '0 0 12px rgba(16, 185, 129, 0.45)' : 'none',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Activity size={13} color={editorMode === 'simulate' ? '#ffffff' : '#38bdf8'} />
+          <span>{editorMode === 'simulate' ? 'Exit Simulation' : 'Simulate'}</span>
+        </button>
 
+        {/* Prototype Preview Action: Available on wireframe boards */}
         {isWireframeBoard && (
           <button
             type="button"
             onClick={() => onSetEditorMode(editorMode === 'prototype' ? 'edit' : 'prototype')}
-            title="Interactive prototype preview"
+            title={
+              editorMode === 'prototype'
+                ? 'Exit interactive device preview (Esc)'
+                : 'Interactive device & browser prototype preview'
+            }
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -355,12 +359,12 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
               backgroundColor: editorMode === 'prototype' ? theme.accent : theme.surfaceBg,
               border: `1px solid ${editorMode === 'prototype' ? theme.accent : theme.borderStrong}`,
               borderRadius: 6,
-              padding: '5px 10px',
+              padding: '5px 11px',
               color: '#ffffff',
               fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: editorMode === 'prototype' ? '0 0 10px rgba(59, 130, 246, 0.4)' : 'none',
+              boxShadow: editorMode === 'prototype' ? '0 0 12px rgba(59, 130, 246, 0.45)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >

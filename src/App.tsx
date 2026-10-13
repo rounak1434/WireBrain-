@@ -76,24 +76,6 @@ export const App: React.FC = () => {
     });
   }, [history.state]);
 
-  // When switching active boards, reset history to selected board
-  const handleSelectBoard = useCallback(
-    (boardId: string) => {
-      const target = project.boards.find((b) => b.id === boardId);
-      if (target) {
-        setProject((prev) => {
-          const next = { ...prev, activeBoardId: boardId };
-          saveProjectToStorage(next);
-          return next;
-        });
-        history.reset(target);
-        setSelectedElementIds([]);
-        setSelectedConnectorId(null);
-      }
-    },
-    [project.boards, history]
-  );
-
   // Layout & Tool States
   const [activeSidebarTab, setActiveSidebarTab] = useState<ActiveSidebarTab>('boards');
   const [toolMode, setToolMode] = useState<ToolMode>('select');
@@ -140,6 +122,45 @@ export const App: React.FC = () => {
   const [simSpeed, setSimSpeed] = useState(1);
   const [tokenProgress, setTokenProgress] = useState(0);
   const animFrameRef = useRef<number | null>(null);
+
+  // When switching active boards, reset history and fully initialize fresh simulation state for target board
+  const handleSelectBoard = useCallback(
+    (boardId: string) => {
+      const target = project.boards.find((b) => b.id === boardId);
+      if (target) {
+        setProject((prev) => {
+          const next = { ...prev, activeBoardId: boardId };
+          saveProjectToStorage(next);
+          return next;
+        });
+        history.reset(target);
+        setSelectedElementIds([]);
+        setSelectedConnectorId(null);
+
+        // Reset running simulation playback
+        setIsSimRunning(false);
+        setSimStepIndex(0);
+        setTokenProgress(0);
+
+        // Initialize fresh scenarios for newly selected target board
+        const targetScenarios = getScenariosForBoard(target);
+        if (targetScenarios.length > 0) {
+          setActiveScenarioId(targetScenarios[0].id);
+        } else {
+          setActiveScenarioId('');
+        }
+
+        // If prototype preview was open, ensure newly selected board has frames
+        if (editorMode === 'prototype') {
+          const hasFrames = target.elements.some((el) => el.type.startsWith('frame'));
+          if (!hasFrames) {
+            setEditorMode('edit');
+          }
+        }
+      }
+    },
+    [project.boards, history, editorMode]
+  );
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) || scenarios[0],
@@ -911,9 +932,13 @@ export const App: React.FC = () => {
         onSetEditorMode={(mode) => {
           setEditorMode(mode);
           if (mode === 'simulate') {
-            setIsSimRunning(true);
+            const hasSteps = (scenarios[0]?.steps?.length ?? 0) > 0;
+            setIsSimRunning(hasSteps);
             setSimStepIndex(0);
             setTokenProgress(0);
+            if (scenarios[0]) {
+              setActiveScenarioId(scenarios[0].id);
+            }
           } else {
             setIsSimRunning(false);
           }
