@@ -135,6 +135,21 @@ export const App: React.FC = () => {
   // Simulation Engine State
   const scenarios = useMemo(() => getScenariosForBoard(history.state), [history.state]);
   const [activeScenarioId, setActiveScenarioId] = useState<string>(() => scenarios[0]?.id || '');
+  const [isSimRunning, setIsSimRunning] = useState(false);
+  const [simStepIndex, setSimStepIndex] = useState(0);
+  const [simSpeed, setSimSpeed] = useState(1);
+  const [tokenProgress, setTokenProgress] = useState(0);
+  const animFrameRef = useRef<number | null>(null);
+
+  const activeScenario = useMemo(
+    () => scenarios.find((s) => s.id === activeScenarioId) || scenarios[0],
+    [scenarios, activeScenarioId]
+  );
+
+  const currentStep =
+    activeScenario && activeScenario.steps.length > 0
+      ? activeScenario.steps[Math.min(simStepIndex, activeScenario.steps.length - 1)]
+      : null;
 
   useEffect(() => {
     if (scenarios.length > 0 && !scenarios.some((s) => s.id === activeScenarioId)) {
@@ -154,22 +169,6 @@ export const App: React.FC = () => {
       setTokenProgress(0);
     }
   }, [activeScenario, simStepIndex]);
-
-  const activeScenario = useMemo(
-    () => scenarios.find((s) => s.id === activeScenarioId) || scenarios[0],
-    [scenarios, activeScenarioId]
-  );
-
-  const [isSimRunning, setIsSimRunning] = useState(false);
-  const [simStepIndex, setSimStepIndex] = useState(0);
-  const [simSpeed, setSimSpeed] = useState(1);
-  const [tokenProgress, setTokenProgress] = useState(0);
-  const animFrameRef = useRef<number | null>(null);
-
-  const currentStep =
-    activeScenario && activeScenario.steps.length > 0
-      ? activeScenario.steps[Math.min(simStepIndex, activeScenario.steps.length - 1)]
-      : null;
 
   // Simulation Animation Loop
   useEffect(() => {
