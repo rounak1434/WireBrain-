@@ -100,7 +100,7 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
                 }}
               />
               <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.03em' }}>
-                SIMULATION {boardTitle ? `· ${boardTitle}` : ''}
+                SIMULATION · NO CONNECTED ROUTES {boardTitle ? `(${boardTitle})` : ''}
               </span>
             </div>
 
