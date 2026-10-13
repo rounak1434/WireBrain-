@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   CanvasElement,
   Connector,
   Board,
   ThemeMode,
   PrototypeActionType,
+  DesignTokens,
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import { importLocalImageFile } from '../../utils/assets';
@@ -37,6 +38,8 @@ import {
   Monitor,
   Tablet,
   Smartphone,
+  Package,
+  Check,
 } from 'lucide-react';
 
 interface PropertiesInspectorProps {
@@ -59,6 +62,11 @@ interface PropertiesInspectorProps {
   theme: ThemeColors;
   themeMode: ThemeMode;
   onToggleTheme: () => void;
+  onSaveReusableComponent?: (name: string, category: string, description?: string) => void;
+  designTokens?: DesignTokens;
+  onUpdateDesignTokens?: (tokens: Partial<DesignTokens>) => void;
+  onApplyDesignTokensToBoard?: () => void;
+  onApplyTokenToSelection?: (type: 'fill' | 'stroke' | 'radius', value: string | number) => void;
 }
 
 const COLOR_SWATCHES = [
@@ -108,10 +116,21 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
   theme,
   themeMode,
   onToggleTheme,
+  onSaveReusableComponent,
+  designTokens,
+  onUpdateDesignTokens,
+  onApplyDesignTokensToBoard,
+  onApplyTokenToSelection,
 }) => {
   const isMulti = selectedElements.length > 1;
   const single = selectedElements.length === 1 ? selectedElements[0] : null;
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [componentName, setComponentName] = useState('');
+  const [componentCategory, setComponentCategory] = useState('Cards');
+  const [componentDesc, setComponentDesc] = useState('');
+  const [isComponentSaved, setIsComponentSaved] = useState(false);
+  const [showComponentForm, setShowComponentForm] = useState(false);
 
   return (
     <aside
@@ -415,6 +434,141 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
               </div>
             </Section>
 
+            {/* Reusable Component Section */}
+            {onSaveReusableComponent && (
+              <Section title="Reusable Component" theme={theme}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {!showComponentForm ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setComponentName(single.label || single.type);
+                        setShowComponentForm(true);
+                        setIsComponentSaved(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        padding: '7px 10px',
+                        backgroundColor: '#172554',
+                        border: '1px solid #1d4ed8',
+                        borderRadius: 6,
+                        color: '#93c5fd',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Package size={13} />
+                      <span>Save Selection as Component</span>
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        padding: 10,
+                        backgroundColor: theme.surfaceBg,
+                        border: `1px solid ${theme.borderSubtle}`,
+                        borderRadius: 6,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <div>
+                        <label style={labelStyle(theme)}>Component Name</label>
+                        <input
+                          type="text"
+                          value={componentName}
+                          onChange={(e) => setComponentName(e.target.value)}
+                          placeholder="e.g. Navigation Header"
+                          style={inputStyle(theme)}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={labelStyle(theme)}>Category</label>
+                        <select
+                          value={componentCategory}
+                          onChange={(e) => setComponentCategory(e.target.value)}
+                          style={selectStyle(theme)}
+                        >
+                          <option value="Buttons">Buttons</option>
+                          <option value="Cards">Cards</option>
+                          <option value="Navigation">Navigation</option>
+                          <option value="Forms">Forms</option>
+                          <option value="Layout">Layout</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={labelStyle(theme)}>Description (Optional)</label>
+                        <input
+                          type="text"
+                          value={componentDesc}
+                          onChange={(e) => setComponentDesc(e.target.value)}
+                          placeholder="Short description..."
+                          style={inputStyle(theme)}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowComponentForm(false)}
+                          style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            backgroundColor: 'transparent',
+                            border: `1px solid ${theme.borderSubtle}`,
+                            borderRadius: 5,
+                            color: theme.textMuted,
+                            fontSize: 11,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (componentName.trim()) {
+                              onSaveReusableComponent(componentName.trim(), componentCategory, componentDesc.trim());
+                              setIsComponentSaved(true);
+                              setTimeout(() => {
+                                setShowComponentForm(false);
+                                setIsComponentSaved(false);
+                              }, 1200);
+                            }
+                          }}
+                          style={{
+                            flex: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            padding: '6px 8px',
+                            backgroundColor: isComponentSaved ? '#059669' : '#2563eb',
+                            border: 'none',
+                            borderRadius: 5,
+                            color: '#ffffff',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isComponentSaved ? <Check size={12} /> : <Package size={12} />}
+                          <span>{isComponentSaved ? 'Saved to Library!' : 'Save Component'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
             {/* Image Asset Controls when type === 'image' */}
             {single.type === 'image' && (
               <Section title="Image Asset & Fit" theme={theme}>
@@ -711,6 +865,42 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
 
             {/* Fill Color */}
             <Section title="Fill Color" theme={theme}>
+              {designTokens && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4 }}>
+                    Design Token Colors
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    {[
+                      { label: 'Primary', color: designTokens.colors.primary },
+                      { label: 'Secondary', color: designTokens.colors.secondary },
+                      { label: 'Surface', color: designTokens.colors.surface },
+                      { label: 'Border', color: designTokens.colors.border },
+                    ].map(({ label, color }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => onUpdateElement(single.id, { fillColor: color })}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '3px 6px',
+                          backgroundColor: theme.surfaceBg,
+                          border: single.fillColor === color ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
+                          borderRadius: 4,
+                          fontSize: 10,
+                          color: theme.textMain,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                 {COLOR_SWATCHES.map((c) => (
                   <button
@@ -1040,6 +1230,197 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                 </button>
               </div>
             </Section>
+
+            {/* Design Tokens & Design System */}
+            {designTokens && onUpdateDesignTokens && (
+              <Section title="Design Tokens & System" theme={theme}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>
+                      Color Palette Tokens
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>Primary</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="color"
+                            value={designTokens.colors.primary}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, primary: e.target.value },
+                              })
+                            }
+                            style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'none' }}
+                          />
+                          <input
+                            type="text"
+                            value={designTokens.colors.primary}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, primary: e.target.value },
+                              })
+                            }
+                            style={{ ...inputStyle(theme), fontSize: 11, padding: '3px 6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>Secondary</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="color"
+                            value={designTokens.colors.secondary}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, secondary: e.target.value },
+                              })
+                            }
+                            style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'none' }}
+                          />
+                          <input
+                            type="text"
+                            value={designTokens.colors.secondary}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, secondary: e.target.value },
+                              })
+                            }
+                            style={{ ...inputStyle(theme), fontSize: 11, padding: '3px 6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>Surface</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="color"
+                            value={designTokens.colors.surface}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, surface: e.target.value },
+                              })
+                            }
+                            style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'none' }}
+                          />
+                          <input
+                            type="text"
+                            value={designTokens.colors.surface}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, surface: e.target.value },
+                              })
+                            }
+                            style={{ ...inputStyle(theme), fontSize: 11, padding: '3px 6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>Border</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="color"
+                            value={designTokens.colors.border}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, border: e.target.value },
+                              })
+                            }
+                            style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'none' }}
+                          />
+                          <input
+                            type="text"
+                            value={designTokens.colors.border}
+                            onChange={(e) =>
+                              onUpdateDesignTokens({
+                                colors: { ...designTokens.colors, border: e.target.value },
+                              })
+                            }
+                            style={{ ...inputStyle(theme), fontSize: 11, padding: '3px 6px' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>
+                      Typography Family
+                    </div>
+                    <select
+                      value={designTokens.typography.fontFamily}
+                      onChange={(e) =>
+                        onUpdateDesignTokens({
+                          typography: { ...designTokens.typography, fontFamily: e.target.value },
+                        })
+                      }
+                      style={selectStyle(theme)}
+                    >
+                      <option value="Inter, system-ui, sans-serif">Inter (Modern Clean Sans)</option>
+                      <option value="-apple-system, BlinkMacSystemFont, sans-serif">Apple SF Pro / System</option>
+                      <option value="JetBrains Mono, monospace">JetBrains Mono (Technical)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>
+                      Corner Radius Scale
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <NumberInput
+                        label="Medium"
+                        value={designTokens.borderRadius.medium}
+                        onChange={(v) =>
+                          onUpdateDesignTokens({
+                            borderRadius: { ...designTokens.borderRadius, medium: v },
+                          })
+                        }
+                        theme={theme}
+                      />
+                      <NumberInput
+                        label="Large"
+                        value={designTokens.borderRadius.large}
+                        onChange={(v) =>
+                          onUpdateDesignTokens({
+                            borderRadius: { ...designTokens.borderRadius, large: v },
+                          })
+                        }
+                        theme={theme}
+                      />
+                    </div>
+                  </div>
+
+                  {onApplyDesignTokensToBoard && (
+                    <button
+                      type="button"
+                      onClick={onApplyDesignTokensToBoard}
+                      style={{
+                        marginTop: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        padding: '7px 10px',
+                        backgroundColor: '#172554',
+                        border: '1px solid #1d4ed8',
+                        borderRadius: 6,
+                        color: '#93c5fd',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      <span>Apply Tokens to Active Board</span>
+                    </button>
+                  )}
+                </div>
+              </Section>
+            )}
 
             <Section title="Board Telemetry" theme={theme}>
               <div

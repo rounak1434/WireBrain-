@@ -74,6 +74,8 @@ export function loadProjectFromStorage(): Project {
       return {
         ...parsed,
         boards: updatedBoards,
+        reusableComponents: parsed.reusableComponents || defaultProject.reusableComponents || [],
+        designTokens: parsed.designTokens || defaultProject.designTokens,
       };
     }
   } catch (err) {

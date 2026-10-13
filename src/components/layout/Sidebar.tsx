@@ -4,6 +4,7 @@ import {
   CanvasElement,
   ActiveSidebarTab,
   ElementType,
+  ReusableComponentDefinition,
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import { TutorialPanel } from '../tutorial/TutorialPanel';
@@ -37,6 +38,7 @@ import {
   TextCursorInput,
   Radio,
   FileCode,
+  Package,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -66,6 +68,9 @@ interface SidebarProps {
   completedGuides: Record<string, boolean>;
   onToggleGuideComplete: (guideId: string) => void;
   onOpenExampleProject?: (example: ExampleProjectDefinition, mode?: 'edit' | 'prototype' | 'simulate') => void;
+  reusableComponents?: ReusableComponentDefinition[];
+  onInsertComponentInstance?: (componentDef: ReusableComponentDefinition) => void;
+  onDeleteReusableComponent?: (componentId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -95,6 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   completedGuides,
   onToggleGuideComplete,
   onOpenExampleProject,
+  reusableComponents,
+  onInsertComponentInstance,
+  onDeleteReusableComponent,
 }) => {
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
   const [editBoardTitle, setEditBoardTitle] = useState('');
@@ -323,6 +331,201 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 outline: 'none',
               }}
             />
+
+            {/* Reusable Components Library */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '2px 4px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Package size={13} color="#60a5fa" />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#60a5fa',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Reusable Components
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    backgroundColor: '#172554',
+                    color: '#60a5fa',
+                    padding: '1px 6px',
+                    borderRadius: 10,
+                  }}
+                >
+                  {(reusableComponents || []).length}
+                </span>
+              </div>
+
+              {(reusableComponents || []).filter(
+                (c) =>
+                  !searchElements ||
+                  c.name.toLowerCase().includes(searchElements.toLowerCase()) ||
+                  c.category.toLowerCase().includes(searchElements.toLowerCase())
+              ).length > 0 ? (
+                (reusableComponents || [])
+                  .filter(
+                    (c) =>
+                      !searchElements ||
+                      c.name.toLowerCase().includes(searchElements.toLowerCase()) ||
+                      c.category.toLowerCase().includes(searchElements.toLowerCase())
+                  )
+                  .map((comp) => (
+                    <div
+                      key={comp.id}
+                      style={{
+                        padding: '10px 12px',
+                        backgroundColor: theme.surfaceBg,
+                        border: `1px solid ${theme.borderSubtle}`,
+                        borderRadius: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        transition: 'border-color 0.15s ease',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff' }}>
+                            {comp.name}
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              marginTop: 2,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                backgroundColor: '#1e293b',
+                                color: '#94a3b8',
+                                padding: '1px 5px',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {comp.category}
+                            </span>
+                            <span style={{ fontSize: 10, color: theme.textMuted }}>
+                              {comp.elements.length}{' '}
+                              {comp.elements.length === 1 ? 'element' : 'elements'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {onDeleteReusableComponent && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteReusableComponent(comp.id);
+                            }}
+                            title="Delete Component Definition"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: theme.textMuted,
+                              cursor: 'pointer',
+                              padding: 2,
+                              opacity: 0.6,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = '#ef4444';
+                              e.currentTarget.style.opacity = '1';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = theme.textMuted;
+                              e.currentTarget.style.opacity = '0.6';
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+
+                      {comp.description && (
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            color: theme.textMuted,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {comp.description}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => onInsertComponentInstance?.(comp)}
+                        style={{
+                          marginTop: 4,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          padding: '6px 10px',
+                          backgroundColor: '#172554',
+                          border: '1px solid #1d4ed8',
+                          borderRadius: 6,
+                          color: '#93c5fd',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#1e3a8a';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#172554';
+                        }}
+                      >
+                        <Plus size={12} />
+                        <span>Place Instance on Board</span>
+                      </button>
+                    </div>
+                  ))
+              ) : (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    border: `1px dashed ${theme.borderSubtle}`,
+                    backgroundColor: 'rgba(255,255,255,0.01)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 11, color: theme.textMuted, lineHeight: 1.4 }}>
+                    No matching components found.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <ElementCategory title="Website Wireframes" theme={theme}>
               <ElementCard

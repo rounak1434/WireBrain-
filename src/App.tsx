@@ -9,6 +9,8 @@ import {
   ElementType,
   ThemeMode,
   EditorMode,
+  ReusableComponentDefinition,
+  DesignTokens,
 } from './types';
 import {
   loadProjectFromStorage,
@@ -39,6 +41,7 @@ import { GuidedTour } from './components/tutorial/GuidedTour';
 import { SimulationController } from './components/simulation/SimulationController';
 import { PrototypePreview } from './components/prototype/PrototypePreview';
 import { ExampleProjectDefinition } from './data/exampleProjects';
+import { defaultDesignTokens } from './data/starterBoards';
 
 export const App: React.FC = () => {
   // Theme state
@@ -540,6 +543,148 @@ export const App: React.FC = () => {
       }));
     },
     [history]
+  );
+
+  // Reusable Components Handlers
+  const handleSaveReusableComponent = useCallback(
+    (name: string, category: string, description?: string) => {
+      const selected = currentElements.filter((el) => selectedElementIds.includes(el.id));
+      if (selected.length === 0) return;
+
+      const minX = Math.min(...selected.map((e) => e.x));
+      const minY = Math.min(...selected.map((e) => e.y));
+
+      const normalizedElements: CanvasElement[] = selected.map((el) => ({
+        ...el,
+        x: el.x - minX,
+        y: el.y - minY,
+      }));
+
+      const newComponent: ReusableComponentDefinition = {
+        id: `comp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        category: category || 'Custom',
+        description,
+        elements: normalizedElements,
+        createdAt: Date.now(),
+      };
+
+      setProject((prev) => {
+        const existing = prev.reusableComponents || [];
+        const updated = [newComponent, ...existing];
+        const nextProject: Project = { ...prev, reusableComponents: updated };
+        saveProjectToStorage(nextProject);
+        return nextProject;
+      });
+    },
+    [currentElements, selectedElementIds]
+  );
+
+  const handleDeleteReusableComponent = useCallback((componentId: string) => {
+    setProject((prev) => {
+      const existing = prev.reusableComponents || [];
+      const updated = existing.filter((c) => c.id !== componentId);
+      const nextProject: Project = { ...prev, reusableComponents: updated };
+      saveProjectToStorage(nextProject);
+      return nextProject;
+    });
+  }, []);
+
+  const handleInsertComponentInstance = useCallback(
+    (componentDef: ReusableComponentDefinition) => {
+      if (!componentDef.elements || componentDef.elements.length === 0) return;
+
+      const spawnX = 140 + Math.floor(Math.random() * 30);
+      const spawnY = 140 + Math.floor(Math.random() * 30);
+      const instanceGroupId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const newElementIds: string[] = [];
+
+      const newElements: CanvasElement[] = componentDef.elements.map((el, idx) => {
+        const newId = `inst-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+        newElementIds.push(newId);
+        return {
+          ...el,
+          id: newId,
+          x: el.x + spawnX,
+          y: el.y + spawnY,
+          groupId: componentDef.elements.length > 1 ? instanceGroupId : undefined,
+          groupName: componentDef.elements.length > 1 ? componentDef.name : undefined,
+        };
+      });
+
+      history.set({
+        ...activeBoard,
+        elements: [...currentElements, ...newElements],
+        updatedAt: Date.now(),
+      });
+      setSelectedElementIds(newElementIds);
+    },
+    [activeBoard, currentElements, history]
+  );
+
+  // Design Tokens Handlers
+  const handleUpdateDesignTokens = useCallback((tokensUpdate: Partial<DesignTokens>) => {
+    setProject((prev) => {
+      const current = prev.designTokens || defaultDesignTokens;
+      const updatedTokens: DesignTokens = {
+        ...current,
+        ...tokensUpdate,
+        colors: { ...current.colors, ...(tokensUpdate.colors || {}) },
+        typography: { ...current.typography, ...(tokensUpdate.typography || {}) },
+        spacing: { ...current.spacing, ...(tokensUpdate.spacing || {}) },
+        borderRadius: { ...current.borderRadius, ...(tokensUpdate.borderRadius || {}) },
+      };
+      const nextProject: Project = { ...prev, designTokens: updatedTokens };
+      saveProjectToStorage(nextProject);
+      return nextProject;
+    });
+  }, []);
+
+  const handleApplyDesignTokensToBoard = useCallback(() => {
+    const tokens = project.designTokens || defaultDesignTokens;
+    const updatedElements = currentElements.map((el) => {
+      if (el.type === 'button') {
+        return {
+          ...el,
+          fillColor: tokens.colors.primary,
+          cornerRadius: tokens.borderRadius.medium,
+        };
+      }
+      if (el.type.startsWith('frame')) {
+        return {
+          ...el,
+          fillColor: tokens.colors.surface,
+          strokeColor: tokens.colors.border,
+          cornerRadius: tokens.borderRadius.large,
+        };
+      }
+      return el;
+    });
+
+    history.set({
+      ...activeBoard,
+      elements: updatedElements,
+      updatedAt: Date.now(),
+    });
+  }, [activeBoard, currentElements, project.designTokens, history]);
+
+  const handleApplyTokenToSelection = useCallback(
+    (type: 'fill' | 'stroke' | 'radius', value: string | number) => {
+      if (selectedElementIds.length === 0) return;
+      const updated = currentElements.map((el) => {
+        if (!selectedElementIds.includes(el.id)) return el;
+        if (type === 'fill') return { ...el, fillColor: String(value) };
+        if (type === 'stroke') return { ...el, strokeColor: String(value) };
+        if (type === 'radius') return { ...el, cornerRadius: Number(value) };
+        return el;
+      });
+      history.set({
+        ...activeBoard,
+        elements: updated,
+        updatedAt: Date.now(),
+      });
+    },
+    [activeBoard, currentElements, selectedElementIds, history]
   );
 
   // Alignment and Distribution
@@ -1051,6 +1196,9 @@ export const App: React.FC = () => {
           completedGuides={completedGuides}
           onToggleGuideComplete={handleToggleGuideComplete}
           onOpenExampleProject={handleOpenExampleProject}
+          reusableComponents={project.reusableComponents || []}
+          onInsertComponentInstance={handleInsertComponentInstance}
+          onDeleteReusableComponent={handleDeleteReusableComponent}
         />
 
         {/* Center Canvas */}
@@ -1107,6 +1255,11 @@ export const App: React.FC = () => {
           theme={theme}
           themeMode={themeMode}
           onToggleTheme={handleToggleTheme}
+          onSaveReusableComponent={handleSaveReusableComponent}
+          designTokens={project.designTokens || defaultDesignTokens}
+          onUpdateDesignTokens={handleUpdateDesignTokens}
+          onApplyDesignTokensToBoard={handleApplyDesignTokensToBoard}
+          onApplyTokenToSelection={handleApplyTokenToSelection}
         />
 
         {/* Floating Simulation Controls in Simulate Mode */}

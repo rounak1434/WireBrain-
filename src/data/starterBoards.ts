@@ -1,4 +1,4 @@
-import { Board } from '../types';
+import { Board, DesignTokens, ReusableComponentDefinition, Project } from '../types';
 
 export const starterBoards: Board[] = [
   {
@@ -987,16 +987,190 @@ export const starterBoards: Board[] = [
   },
 ];
 
-export const defaultProject: {
-  id: string;
-  name: string;
-  version: string;
-  boards: Board[];
-  activeBoardId: string;
-} = {
+export const defaultDesignTokens: DesignTokens = {
+  colors: {
+    primary: '#3b82f6',
+    secondary: '#8b5cf6',
+    background: '#07090e',
+    surface: '#0e1015',
+    text: '#ffffff',
+    border: '#1f2430',
+  },
+  typography: {
+    fontFamily: 'Inter, system-ui, sans-serif',
+    baseFontSize: 14,
+  },
+  spacing: {
+    gridSize: 20,
+  },
+  borderRadius: {
+    small: 4,
+    medium: 8,
+    large: 16,
+    full: 9999,
+  },
+};
+
+export const starterReusableComponents: ReusableComponentDefinition[] = [
+  {
+    id: 'comp-nav-header',
+    name: 'Top Navigation Bar',
+    category: 'Navigation',
+    description: 'Header with brand label, navigation links, and primary action button',
+    createdAt: Date.now() - 100000,
+    elements: [
+      {
+        id: 'comp-nav-bg',
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 56,
+        label: '',
+        fillColor: '#0e121a',
+        strokeColor: '#1e2638',
+        strokeWidth: 1,
+        cornerRadius: 8,
+      },
+      {
+        id: 'comp-nav-brand',
+        type: 'text',
+        x: 20,
+        y: 16,
+        width: 140,
+        height: 24,
+        label: 'WIREBRAIN',
+        fillColor: 'transparent',
+        strokeColor: 'transparent',
+        strokeWidth: 0,
+        textColor: '#60a5fa',
+        fontWeight: '700',
+        fontSize: 15,
+      },
+      {
+        id: 'comp-nav-cta',
+        type: 'button',
+        x: 660,
+        y: 10,
+        width: 120,
+        height: 36,
+        label: 'Get Started',
+        fillColor: '#3b82f6',
+        strokeColor: '#2563eb',
+        strokeWidth: 1,
+        textColor: '#ffffff',
+        cornerRadius: 6,
+        fontWeight: '600',
+        prototypeAction: 'modal',
+        prototypeTarget: 'Get Started Form',
+        prototypePayload: 'Enter your credentials to begin using WireBrain.',
+      },
+    ],
+  },
+  {
+    id: 'comp-stat-card',
+    name: 'Metric Statistic Card',
+    category: 'Cards',
+    description: 'Analytical metric card with value, label, and trend pill',
+    createdAt: Date.now() - 80000,
+    elements: [
+      {
+        id: 'comp-card-bg',
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 240,
+        height: 140,
+        label: '',
+        fillColor: '#0e121a',
+        strokeColor: '#1e2638',
+        strokeWidth: 1,
+        cornerRadius: 12,
+      },
+      {
+        id: 'comp-card-title',
+        type: 'text',
+        x: 18,
+        y: 18,
+        width: 160,
+        height: 20,
+        label: 'Total Revenue',
+        fillColor: 'transparent',
+        strokeColor: 'transparent',
+        strokeWidth: 0,
+        textColor: '#8b9bb4',
+        fontSize: 12,
+        fontWeight: '500',
+      },
+      {
+        id: 'comp-card-value',
+        type: 'text',
+        x: 18,
+        y: 46,
+        width: 180,
+        height: 38,
+        label: '$48,250',
+        fillColor: 'transparent',
+        strokeColor: 'transparent',
+        strokeWidth: 0,
+        textColor: '#ffffff',
+        fontSize: 26,
+        fontWeight: '700',
+      },
+      {
+        id: 'comp-card-badge',
+        type: 'button',
+        x: 18,
+        y: 94,
+        width: 90,
+        height: 24,
+        label: '+18.4% YoY',
+        fillColor: '#064e3b',
+        strokeColor: '#059669',
+        strokeWidth: 1,
+        textColor: '#34d399',
+        fontSize: 11,
+        cornerRadius: 6,
+        prototypeAction: 'alert',
+        prototypePayload: 'Revenue trend: +18.4% higher than last quarter',
+      },
+    ],
+  },
+  {
+    id: 'comp-primary-cta',
+    name: 'Interactive Action Button',
+    category: 'Buttons',
+    description: 'Standard rounded primary button wired with prototype interaction',
+    createdAt: Date.now() - 60000,
+    elements: [
+      {
+        id: 'comp-btn-cta',
+        type: 'button',
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 44,
+        label: 'Confirm & Deploy',
+        fillColor: '#3b82f6',
+        strokeColor: '#2563eb',
+        strokeWidth: 1,
+        textColor: '#ffffff',
+        cornerRadius: 8,
+        fontWeight: '600',
+        fontSize: 14,
+        prototypeAction: 'alert',
+        prototypePayload: 'Deployment initiated successfully!',
+      },
+    ],
+  },
+];
+
+export const defaultProject: Project = {
   id: 'project-wirebrain-1',
   name: 'WireBrain Workspace',
   version: '1.0.0',
   boards: starterBoards,
   activeBoardId: 'board-website',
+  reusableComponents: starterReusableComponents,
+  designTokens: defaultDesignTokens,
 };
