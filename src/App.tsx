@@ -38,6 +38,7 @@ import { WelcomeModal } from './components/modals/WelcomeModal';
 import { GuidedTour } from './components/tutorial/GuidedTour';
 import { SimulationController } from './components/simulation/SimulationController';
 import { PrototypePreview } from './components/prototype/PrototypePreview';
+import { ExampleProjectDefinition } from './data/exampleProjects';
 
 export const App: React.FC = () => {
   // Theme state
@@ -138,8 +139,21 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (scenarios.length > 0 && !scenarios.some((s) => s.id === activeScenarioId)) {
       setActiveScenarioId(scenarios[0].id);
+      setSimStepIndex(0);
+      setTokenProgress(0);
     }
   }, [scenarios, activeScenarioId]);
+
+  // Ensure simulation step index stays within valid range when diagram elements/connectors are edited
+  useEffect(() => {
+    if (!activeScenario || activeScenario.steps.length === 0) {
+      setSimStepIndex(0);
+      setTokenProgress(0);
+    } else if (simStepIndex >= activeScenario.steps.length) {
+      setSimStepIndex(0);
+      setTokenProgress(0);
+    }
+  }, [activeScenario, simStepIndex]);
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) || scenarios[0],
@@ -652,6 +666,41 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenExampleProject = useCallback(
+    (example: ExampleProjectDefinition, mode?: 'edit' | 'prototype' | 'simulate') => {
+      const existing = project.boards.find((b) => b.id === example.board.id);
+      if (existing) {
+        handleSelectBoard(existing.id);
+      } else {
+        const clonedBoard: Board = JSON.parse(JSON.stringify(example.board));
+        clonedBoard.updatedAt = Date.now();
+        setProject((prev) => {
+          const next = {
+            ...prev,
+            boards: [...prev.boards, clonedBoard],
+            activeBoardId: clonedBoard.id,
+          };
+          saveProjectToStorage(next);
+          return next;
+        });
+        history.reset(clonedBoard);
+        setSelectedElementIds([]);
+        setSelectedConnectorId(null);
+      }
+
+      const targetMode = mode || example.recommendedMode || 'edit';
+      setEditorMode(targetMode);
+      if (targetMode === 'simulate') {
+        setIsSimRunning(true);
+        setSimStepIndex(0);
+        setTokenProgress(0);
+      } else {
+        setIsSimRunning(false);
+      }
+    },
+    [project.boards, handleSelectBoard, history]
+  );
+
   const duplicateBoard = useCallback(
     (boardId: string) => {
       const source = project.boards.find((b) => b.id === boardId);
@@ -921,6 +970,7 @@ export const App: React.FC = () => {
           onCreateTutorialBoard={handleCreateTutorialBoard}
           completedGuides={completedGuides}
           onToggleGuideComplete={handleToggleGuideComplete}
+          onOpenExampleProject={handleOpenExampleProject}
         />
 
         {/* Center Canvas */}
@@ -991,6 +1041,7 @@ export const App: React.FC = () => {
             onTogglePlay={() => setIsSimRunning((r) => !r)}
             onStepForward={() => {
               if (activeScenario && activeScenario.steps.length > 0) {
+                setIsSimRunning(false);
                 setSimStepIndex((s) => (s + 1 >= activeScenario.steps.length ? 0 : s + 1));
                 setTokenProgress(0);
               }

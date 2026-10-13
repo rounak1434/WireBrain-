@@ -102,6 +102,13 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           theme={theme}
         />
         <RailButton
+          icon={<Sparkles size={19} />}
+          label="Example Projects"
+          isActive={activeTab === 'examples'}
+          onClick={() => onTabChange('examples')}
+          theme={theme}
+        />
+        <RailButton
           icon={<GraduationCap size={19} />}
           label="Tutorial & Guides"
           isActive={activeTab === 'tutorial'}

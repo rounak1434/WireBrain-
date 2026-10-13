@@ -7,6 +7,8 @@ import {
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import { TutorialPanel } from '../tutorial/TutorialPanel';
+import { ExamplesGalleryPanel } from '../examples/ExamplesGalleryPanel';
+import { ExampleProjectDefinition } from '../../data/exampleProjects';
 import {
   Plus,
   Copy,
@@ -58,6 +60,7 @@ interface SidebarProps {
   onCreateTutorialBoard: (type: 'architecture' | 'wireframe') => void;
   completedGuides: Record<string, boolean>;
   onToggleGuideComplete: (guideId: string) => void;
+  onOpenExampleProject?: (example: ExampleProjectDefinition, mode?: 'edit' | 'prototype' | 'simulate') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -82,6 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateTutorialBoard,
   completedGuides,
   onToggleGuideComplete,
+  onOpenExampleProject,
 }) => {
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
   const [editBoardTitle, setEditBoardTitle] = useState('');
@@ -137,6 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {activeTab === 'boards' && 'Project Boards'}
           {activeTab === 'elements' && 'Elements Library'}
           {activeTab === 'layers' && 'Canvas Layers'}
+          {activeTab === 'examples' && 'Example Projects'}
           {activeTab === 'tutorial' && 'Tutorial & Guides'}
           {activeTab === 'shortcuts' && 'Key Bindings'}
         </span>
@@ -720,6 +725,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onCreateTutorialBoard={onCreateTutorialBoard}
             completedGuides={completedGuides}
             onToggleGuideComplete={onToggleGuideComplete}
+          />
+        )}
+
+        {/* EXAMPLES TAB */}
+        {activeTab === 'examples' && onOpenExampleProject && (
+          <ExamplesGalleryPanel
+            theme={theme}
+            onOpenExample={onOpenExampleProject}
+            activeBoardId={activeBoardId}
           />
         )}
 
