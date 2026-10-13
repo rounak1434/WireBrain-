@@ -1040,6 +1040,7 @@ export const App: React.FC = () => {
           setWelcomeCompleted(true);
         }}
         onSelectBoard={handleSelectBoard}
+        onCreateBoard={(title) => createBoard(title)}
         theme={theme}
       />
       <GuidedTour
