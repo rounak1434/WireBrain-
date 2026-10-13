@@ -34,6 +34,23 @@ export function getAnchorPoint(element: CanvasElement, anchor: AnchorPosition): 
   }
 }
 
+export function getClosestAnchor(element: CanvasElement, point: Point): AnchorPosition {
+  const anchors: AnchorPosition[] = ['top', 'right', 'bottom', 'left'];
+  let closestAnchor: AnchorPosition = 'right';
+  let minDistance = Infinity;
+
+  for (const anchor of anchors) {
+    const pt = getAnchorPoint(element, anchor);
+    const d = (pt.x - point.x) ** 2 + (pt.y - point.y) ** 2;
+    if (d < minDistance) {
+      minDistance = d;
+      closestAnchor = anchor;
+    }
+  }
+
+  return closestAnchor;
+}
+
 export function getOrthogonalWaypoints(
   from: Point,
   to: Point,

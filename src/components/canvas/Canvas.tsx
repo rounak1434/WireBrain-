@@ -12,7 +12,7 @@ import { ElementRenderer } from './ElementRenderer';
 import { ConnectorRenderer } from './ConnectorRenderer';
 import { ResizeHandles, HandleDirection } from './ResizeHandles';
 import { AnchorPoints } from './AnchorPoints';
-import { snap, rectIntersectsRect, getAnchorPoint, getPointAlongConnector } from '../../utils/geometry';
+import { snap, rectIntersectsRect, getAnchorPoint, getClosestAnchor, getPointAlongConnector } from '../../utils/geometry';
 import { importLocalImageFile } from '../../utils/assets';
 
 interface CanvasProps {
@@ -416,9 +416,17 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
-    e.stopPropagation();
-
-    if (toolMode === 'connector') return;
+    if (toolMode === 'connector') {
+      onSelectElements([el.id]);
+      onSelectConnector(null);
+      const world = screenToWorld(e.clientX, e.clientY);
+      const closestAnchor = getClosestAnchor(el, world);
+      setIsDrawingConnector(true);
+      setConnStartElementId(el.id);
+      setConnStartAnchor(closestAnchor);
+      setConnMousePos(world);
+      return;
+    }
 
     const isShift = e.shiftKey || e.ctrlKey || e.metaKey;
     let nextSelected = [...selectedElementIds];
@@ -636,6 +644,31 @@ export const Canvas: React.FC<CanvasProps> = ({
       setIsMarquee(false);
     }
     if (isDrawingConnector) {
+      if (connStartElementId && connStartAnchor) {
+        // If dropped over or near another canvas element, connect to its closest anchor
+        const targetEl = elements.find(
+          (el) =>
+            !el.hidden &&
+            el.id !== connStartElementId &&
+            connMousePos.x >= el.x - 10 &&
+            connMousePos.x <= el.x + el.width + 10 &&
+            connMousePos.y >= el.y - 10 &&
+            connMousePos.y <= el.y + el.height + 10
+        );
+        if (targetEl) {
+          const toAnchor = getClosestAnchor(targetEl, connMousePos);
+          onCreateConnector({
+            fromId: connStartElementId,
+            toId: targetEl.id,
+            fromAnchor: connStartAnchor,
+            toAnchor,
+            color: theme.accent,
+            strokeWidth: 2,
+            style: 'orthogonal',
+            arrowEnd: true,
+          });
+        }
+      }
       setIsDrawingConnector(false);
       setConnStartElementId(null);
       setConnStartAnchor(null);
@@ -733,20 +766,20 @@ export const Canvas: React.FC<CanvasProps> = ({
         <svg
           style={{
             position: 'absolute',
-            top: -50000,
-            left: -50000,
-            width: 100000,
-            height: 100000,
+            top: 0,
+            left: 0,
+            width: 1,
+            height: 1,
             pointerEvents: 'none',
             overflow: 'visible',
           }}
         >
           <defs>
             <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M 0 1 L 8 4 L 0 7 Z" fill={theme.accent} />
+              <path d="M 0 1 L 8 4 L 0 7 Z" fill="currentColor" />
             </marker>
             <marker id="arrow-start" markerWidth="8" markerHeight="8" refX="2" refY="4" orient="auto">
-              <path d="M 8 1 L 0 4 L 8 7 Z" fill={theme.accent} />
+              <path d="M 8 1 L 0 4 L 8 7 Z" fill="currentColor" />
             </marker>
             <filter id="token-glow" x="-20%" y="-20%" width="140%" height="140%">
               <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#10b981" />
@@ -754,7 +787,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           </defs>
 
           {/* Render Connectors */}
-          <g style={{ pointerEvents: isSimulating ? 'none' : 'auto' }}>
+          <g style={{ pointerEvents: isSimulating ? 'none' : 'auto', color: theme.accent }}>
             {connectors.map((conn) => {
               const isStepConn = isSimulating && activeSimulationStep?.connectorId === conn.id;
 
@@ -816,8 +849,19 @@ export const Canvas: React.FC<CanvasProps> = ({
         {elements.map((el) => {
           if (el.hidden) return null;
           const isSelected = selectedElementIds.includes(el.id);
+          const isSingleSelected = isSelected && selectedElementIds.length === 1;
+          const isDrawingSource = isDrawingConnector && connStartElementId === el.id;
+          const isCandidateTarget =
+            isDrawingConnector && hoveredElementId === el.id && connStartElementId !== el.id;
+
           const showAnchors =
-            !isSimulating && (toolMode === 'connector' || hoveredElementId === el.id || isDrawingConnector);
+            !isSimulating &&
+            !el.locked &&
+            (
+              (isSingleSelected && (toolMode === 'select' || toolMode === 'connector')) ||
+              isDrawingSource ||
+              isCandidateTarget
+            );
 
           // Simulation highlighting states
           const isSimSource = isSimulating && activeSimulationStep?.sourceNodeId === el.id;
@@ -921,14 +965,18 @@ export const Canvas: React.FC<CanvasProps> = ({
                 onSelectImageFile={handleTriggerImagePicker}
               />
 
-              {/* 8 Resize Handles on single selected element */}
-              {isSelected && !isSimulating && singleSelectedElement?.id === el.id && !el.locked && (
-                <ResizeHandles
-                  width={el.width}
-                  height={el.height}
-                  onResizeStart={handleResizeStart}
-                />
-              )}
+              {/* 8 Resize Handles on single selected element only in select tool mode */}
+              {toolMode === 'select' &&
+                isSelected &&
+                !isSimulating &&
+                singleSelectedElement?.id === el.id &&
+                !el.locked && (
+                  <ResizeHandles
+                    width={el.width}
+                    height={el.height}
+                    onResizeStart={handleResizeStart}
+                  />
+                )}
 
               {/* Connector Anchors */}
               {showAnchors && (

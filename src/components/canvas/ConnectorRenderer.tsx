@@ -45,14 +45,15 @@ export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
         e.stopPropagation();
         onSelect(e);
       }}
-      style={{ cursor: 'pointer' }}
+      style={{ cursor: 'pointer', pointerEvents: 'all' }}
     >
       {/* Invisible wider hit area for easy clicking */}
       <path
         d={pathD}
         fill="none"
         stroke="transparent"
-        strokeWidth={Math.max(14, strokeWidth * 3)}
+        strokeWidth={Math.max(16, strokeWidth * 3)}
+        style={{ pointerEvents: 'stroke' }}
       />
 
       {/* Main Visible Path */}
@@ -60,18 +61,20 @@ export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
         d={pathD}
         fill="none"
         stroke={strokeColor}
+        color={strokeColor}
         strokeWidth={strokeWidth}
         strokeDasharray={connector.dashed ? '6,4' : undefined}
         markerEnd={connector.arrowEnd ? 'url(#arrow-end)' : undefined}
         markerStart={connector.arrowStart ? 'url(#arrow-start)' : undefined}
         style={{
           transition: 'stroke 0.15s ease, stroke-width 0.15s ease',
+          pointerEvents: 'stroke',
         }}
       />
 
       {/* Optional Label Pill */}
       {connector.label && (
-        <g transform={`translate(${midX}, ${midY})`}>
+        <g transform={`translate(${midX}, ${midY})`} style={{ pointerEvents: 'all' }}>
           <rect
             x={-connector.label.length * 4 - 8}
             y={-11}
@@ -81,6 +84,7 @@ export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
             fill="#161920"
             stroke={isSelected ? '#3b82f6' : '#2b3240'}
             strokeWidth={1}
+            style={{ pointerEvents: 'fill' }}
           />
           <text
             x={0}
@@ -90,6 +94,7 @@ export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
             fontWeight="500"
             textAnchor="middle"
             fontFamily="sans-serif"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
             {connector.label}
           </text>
