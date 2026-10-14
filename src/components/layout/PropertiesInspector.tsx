@@ -9,6 +9,7 @@ import {
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import { importLocalImageFile } from '../../utils/assets';
+import { calculateElementFitSize, isFixedSizeElementType } from '../../utils/autoSize';
 import {
   Trash2,
   Copy,
@@ -67,6 +68,7 @@ interface PropertiesInspectorProps {
   onUpdateDesignTokens?: (tokens: Partial<DesignTokens>) => void;
   onApplyDesignTokensToBoard?: () => void;
   onApplyTokenToSelection?: (type: 'fill' | 'stroke' | 'radius', value: string | number) => void;
+  width?: number;
 }
 
 const COLOR_SWATCHES = [
@@ -121,6 +123,7 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
   onUpdateDesignTokens,
   onApplyDesignTokensToBoard,
   onApplyTokenToSelection,
+  width = 280,
 }) => {
   const isMulti = selectedElements.length > 1;
   const single = selectedElements.length === 1 ? selectedElements[0] : null;
@@ -136,7 +139,9 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
     <aside
       aria-label="Properties Inspector"
       style={{
-        width: 280,
+        width,
+        minWidth: width,
+        maxWidth: width,
         backgroundColor: theme.panelBg,
         borderLeft: `1px solid ${theme.borderSubtle}`,
         display: 'flex',
@@ -258,9 +263,13 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                     const newW = Math.max(10, v);
                     if (single.aspectRatioLocked && single.width > 0 && single.height > 0) {
                       const ratio = single.width / single.height;
-                      onUpdateElement(single.id, { width: newW, height: Math.max(10, Math.round(newW / ratio)) });
+                      onUpdateElement(single.id, {
+                        width: newW,
+                        height: Math.max(10, Math.round(newW / ratio)),
+                        autoSize: false,
+                      });
                     } else {
-                      onUpdateElement(single.id, { width: newW });
+                      onUpdateElement(single.id, { width: newW, autoSize: false });
                     }
                   }}
                   theme={theme}
@@ -272,9 +281,13 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                     const newH = Math.max(10, v);
                     if (single.aspectRatioLocked && single.width > 0 && single.height > 0) {
                       const ratio = single.width / single.height;
-                      onUpdateElement(single.id, { height: newH, width: Math.max(10, Math.round(newH * ratio)) });
+                      onUpdateElement(single.id, {
+                        height: newH,
+                        width: Math.max(10, Math.round(newH * ratio)),
+                        autoSize: false,
+                      });
                     } else {
-                      onUpdateElement(single.id, { height: newH });
+                      onUpdateElement(single.id, { height: newH, autoSize: false });
                     }
                   }}
                   theme={theme}
@@ -305,6 +318,71 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                   {single.aspectRatioLocked ? 'Locked' : 'Unlocked'}
                 </button>
               </div>
+
+              {/* Text Sizing & Auto-size to Content */}
+              {!isFixedSizeElementType(single.type) && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 8, borderTop: `1px solid ${theme.borderSubtle}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: theme.textSecondary }}>Auto-size to content</span>
+                      <span style={{ fontSize: 10, color: theme.textMuted }}>Grows box when text changes</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isCurrentlyEnabled = single.autoSize !== false;
+                        if (!isCurrentlyEnabled) {
+                          const fit = calculateElementFitSize(single);
+                          onUpdateElement(single.id, {
+                            width: Math.max(single.width, fit.width),
+                            height: Math.max(single.height, fit.height),
+                            autoSize: true,
+                          });
+                        } else {
+                          onUpdateElement(single.id, { autoSize: false });
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '3px 8px',
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        backgroundColor: single.autoSize !== false ? '#172554' : theme.surfaceBg,
+                        border: single.autoSize !== false ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
+                        color: single.autoSize !== false ? '#60a5fa' : theme.textMuted,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Sparkles size={11} />
+                      {single.autoSize !== false ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fit = calculateElementFitSize(single);
+                      onUpdateElement(single.id, {
+                        width: fit.width,
+                        height: fit.height,
+                        autoSize: true,
+                      });
+                    }}
+                    style={{
+                      ...toolActionBtnStyle(theme),
+                      marginTop: 2,
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
+                    title="Calculate optimal shape dimensions and wrap text to fit comfortably"
+                  >
+                    <Sparkles size={12} color="#60a5fa" /> Fit Shape to Content
+                  </button>
+                </div>
+              )}
 
               {/* Layer Ordering Controls */}
               {onReorderElement && (

@@ -121,7 +121,9 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 16px',
-        zIndex: 15,
+        position: 'relative',
+        zIndex: 50,
+        overflow: 'visible',
         userSelect: 'none',
         flexShrink: 0,
       }}
@@ -132,6 +134,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
           <button
             type="button"
             onClick={() => setBoardMenuOpen(!boardMenuOpen)}
+            title={activeBoard ? `Active Board: ${activeBoard.title}` : 'Select Board'}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -144,35 +147,76 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
               fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
+              maxWidth: 220,
+              transition: 'background-color 0.12s ease, border-color 0.12s ease',
             }}
           >
-            <Layers size={14} color={theme.accent} />
-            <span>{activeBoard ? activeBoard.title : 'Select Board'}</span>
-            <ChevronDown size={13} color={theme.textMuted} />
+            <Layers size={14} color={theme.accent} style={{ flexShrink: 0 }} />
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 150,
+                display: 'inline-block',
+              }}
+            >
+              {activeBoard ? activeBoard.title : 'Select Board'}
+            </span>
+            <ChevronDown size={13} color={theme.textMuted} style={{ flexShrink: 0 }} />
           </button>
 
           {boardMenuOpen && (
             <div
               style={{
                 position: 'absolute',
-                top: 'calc(100% + 4px)',
+                top: 'calc(100% + 6px)',
                 left: 0,
-                width: 220,
+                minWidth: 260,
+                maxWidth: 'min(380px, calc(100vw - 32px))',
+                width: 'max-content',
+                maxHeight: 'min(420px, calc(100vh - 64px))',
+                overflowY: 'auto',
+                overflowX: 'hidden',
                 backgroundColor: theme.panelBg,
                 border: `1px solid ${theme.borderStrong}`,
                 borderRadius: 8,
                 padding: 6,
-                boxShadow: '0 12px 32px rgba(0,0,0,0.8)',
+                boxShadow: '0 16px 36px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 4,
-                zIndex: 50,
+                zIndex: 100,
               }}
             >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 8px 6px',
+                  borderBottom: `1px solid ${theme.borderSubtle}`,
+                  marginBottom: 2,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: theme.textMuted,
+                  }}
+                >
+                  Switch Board ({boards.length})
+                </span>
+                <span style={{ fontSize: 10, color: theme.accent, fontWeight: 600 }}>Active</span>
+              </div>
               {boards.map((b) => (
                 <button
                   key={b.id}
                   type="button"
+                  title={b.title}
                   onClick={() => {
                     onSelectBoard(b.id);
                     setBoardMenuOpen(false);
@@ -190,10 +234,58 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
                     fontWeight: b.id === activeBoardId ? 600 : 500,
                     textAlign: 'left',
                     cursor: 'pointer',
+                    width: '100%',
+                    gap: 10,
+                    boxSizing: 'border-box',
+                    transition: 'background-color 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (b.id !== activeBoardId) {
+                      e.currentTarget.style.backgroundColor = theme.surfaceHover;
+                      e.currentTarget.style.color = '#ffffff';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (b.id !== activeBoardId) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = theme.textSecondary;
+                    }
                   }}
                 >
-                  <span>{b.title}</span>
-                  <span style={{ fontSize: 10, color: theme.textMuted }}>{b.elements.length} items</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                    <span style={{ color: b.id === activeBoardId ? theme.accent : theme.textMuted, flexShrink: 0 }}>
+                      {b.id.includes('web') || b.boardType === 'website' ? (
+                        <Layout size={14} />
+                      ) : b.id.includes('mob') || b.boardType === 'mobile' ? (
+                        <Smartphone size={14} />
+                      ) : (
+                        <Server size={14} />
+                      )}
+                    </span>
+                    <span
+                      style={{
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      {b.title}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: b.id === activeBoardId ? theme.accent : theme.textMuted,
+                      flexShrink: 0,
+                      backgroundColor: b.id === activeBoardId ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.05)',
+                      padding: '2px 6px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {b.elements.length} items
+                  </span>
                 </button>
               ))}
             </div>
@@ -456,7 +548,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 4,
-                zIndex: 50,
+                zIndex: 100,
               }}
             >
               <button

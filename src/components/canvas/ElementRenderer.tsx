@@ -231,8 +231,8 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <Server size={15} color="#3b82f6" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: secondaryText ? 4 : 0, minWidth: 0 }}>
+            <Server size={15} color="#3b82f6" style={{ flexShrink: 0 }} />
             <div
               style={{
                 width: 7,
@@ -240,6 +240,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                 borderRadius: '50%',
                 backgroundColor: '#10b981',
                 boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                flexShrink: 0,
               }}
             />
             {isEditing ? (
@@ -253,13 +254,13 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                 style={inlineInputStyle}
               />
             ) : (
-              <span style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3 }}>
                 {label}
               </span>
             )}
           </div>
           {secondaryText && (
-            <div style={{ fontSize: 11, color: '#8894a6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 11, color: '#8894a6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, marginTop: 2 }}>
               {secondaryText}
             </div>
           )}
@@ -396,9 +397,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                 style={inlineInputStyle}
               />
             ) : (
-              <div style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'nowrap' }}>{label}</div>
+              <div style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3 }}>{label}</div>
             )}
-            {secondaryText && <div style={{ fontSize: 10, color: '#8894a6' }}>{secondaryText}</div>}
+            {secondaryText && <div style={{ fontSize: 10, color: '#8894a6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, marginTop: 2 }}>{secondaryText}</div>}
           </div>
         </div>
       )}
@@ -419,10 +420,12 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
               position: 'absolute',
               inset: 0,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
-              padding: '0 12px',
+              padding: '0 16%',
+              overflow: 'hidden',
             }}
           >
             {isEditing ? (
@@ -436,7 +439,12 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                 style={{ ...inlineInputStyle, textAlign: 'center' }}
               />
             ) : (
-              <span style={{ fontSize, fontWeight, color: textColor }}>{label}</span>
+              <span style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, maxWidth: '100%' }}>{label}</span>
+            )}
+            {secondaryText && (
+              <span style={{ fontSize: Math.max(10, fontSize - 2), color: '#8894a6', marginTop: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, maxWidth: '100%' }}>
+                {secondaryText}
+              </span>
             )}
           </div>
         </div>
@@ -452,10 +460,12 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             border: `${strokeWidth}px solid ${strokeColor}`,
             borderRadius: '50%',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            padding: 8,
+            padding: '8px 14%',
+            overflow: 'hidden',
           }}
         >
           {isEditing ? (
@@ -469,7 +479,12 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
               style={{ ...inlineInputStyle, textAlign: 'center' }}
             />
           ) : (
-            <span style={{ fontSize, fontWeight, color: textColor }}>{label}</span>
+            <span style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, maxWidth: '100%' }}>{label}</span>
+          )}
+          {secondaryText && (
+            <span style={{ fontSize: Math.max(10, fontSize - 2), color: '#8894a6', marginTop: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.3, maxWidth: '100%' }}>
+              {secondaryText}
+            </span>
           )}
         </div>
       )}
@@ -720,7 +735,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                   style={{ ...inlineInputStyle, textAlign }}
                 />
               ) : (
-                <span style={{ fontSize, fontWeight, color: textColor }}>{label}</span>
+                <span style={{ fontSize, fontWeight, color: textColor, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.35 }}>
+                  {label}
+                </span>
               )}
             </div>
           )}
@@ -730,6 +747,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
                 fontSize: 12,
                 color: '#8b96a8',
                 whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
                 lineHeight: 1.4,
                 textAlign,
               }}

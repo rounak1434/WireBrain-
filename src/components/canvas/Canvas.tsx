@@ -604,7 +604,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       nextH = snap(nextH, gridSize, snapToGrid);
 
       const updated = elements.map((el) =>
-        el.id === initialResizeElement.id ? { ...el, x: nextX, y: nextY, width: nextW, height: nextH } : el
+        el.id === initialResizeElement.id
+          ? { ...el, x: nextX, y: nextY, width: nextW, height: nextH, autoSize: false }
+          : el
       );
       onUpdateElements(updated);
       return;
@@ -731,6 +733,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       onDrop={handleDropFiles}
       style={{
         flex: 1,
+        minWidth: 0,
+        minHeight: 0,
         height: '100%',
         backgroundColor: theme.canvasBg,
         overflow: 'hidden',

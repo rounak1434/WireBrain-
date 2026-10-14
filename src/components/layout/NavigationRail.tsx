@@ -47,6 +47,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
       aria-label="Navigation Rail"
       style={{
         width: 54,
+        minWidth: 54,
+        maxWidth: 54,
         backgroundColor: theme.panelBg,
         borderRight: `1px solid ${theme.borderSubtle}`,
         display: 'flex',

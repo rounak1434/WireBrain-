@@ -71,6 +71,7 @@ interface SidebarProps {
   reusableComponents?: ReusableComponentDefinition[];
   onInsertComponentInstance?: (componentDef: ReusableComponentDefinition) => void;
   onDeleteReusableComponent?: (componentId: string) => void;
+  width?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -103,6 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   reusableComponents,
   onInsertComponentInstance,
   onDeleteReusableComponent,
+  width = 270,
 }) => {
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
   const [editBoardTitle, setEditBoardTitle] = useState('');
@@ -124,7 +126,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside
       aria-label="Sidebar Panel"
       style={{
-        width: 270,
+        width,
+        minWidth: width,
+        maxWidth: width,
         backgroundColor: theme.panelBg,
         borderRight: `1px solid ${theme.borderSubtle}`,
         display: 'flex',
@@ -234,8 +238,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                       />
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                        <span style={{ color: isActive ? theme.accent : theme.textMuted }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                        <span style={{ color: isActive ? theme.accent : theme.textMuted, flexShrink: 0 }}>
                           {b.id.includes('web') ? (
                             <Layout size={15} />
                           ) : b.id.includes('mob') ? (
@@ -245,6 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )}
                         </span>
                         <span
+                          title={b.title}
                           style={{
                             fontWeight: isActive ? 600 : 500,
                             fontSize: 12,
@@ -252,6 +257,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
+                            flex: 1,
+                            minWidth: 0,
                           }}
                         >
                           {b.title}
@@ -261,7 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     {!isEditing && (
                       <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
@@ -402,10 +409,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           display: 'flex',
                           alignItems: 'flex-start',
                           justifyContent: 'space-between',
+                          gap: 8,
                         }}
                       >
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            title={comp.name}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#ffffff',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {comp.name}
                           </div>
                           <div
@@ -425,11 +443,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 color: '#94a3b8',
                                 padding: '1px 5px',
                                 borderRadius: 4,
+                                flexShrink: 0,
                               }}
                             >
                               {comp.category}
                             </span>
-                            <span style={{ fontSize: 10, color: theme.textMuted }}>
+                            <span style={{ fontSize: 10, color: theme.textMuted, flexShrink: 0 }}>
                               {comp.elements.length}{' '}
                               {comp.elements.length === 1 ? 'element' : 'elements'}
                             </span>
@@ -450,6 +469,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               color: theme.textMuted,
                               cursor: 'pointer',
                               padding: 2,
+                              flexShrink: 0,
                               opacity: 0.6,
                             }}
                             onMouseEnter={(e) => {
@@ -942,9 +962,9 @@ const ElementCard: React.FC<ElementCardProps> = ({ icon, name, description, onCl
       e.currentTarget.style.borderColor = theme.borderSubtle;
     }}
   >
-    <div style={{ color: theme.accent }}>{icon}</div>
-    <div style={{ flex: 1, overflow: 'hidden' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff' }}>{name}</div>
+    <div style={{ color: theme.accent, flexShrink: 0 }}>{icon}</div>
+    <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
       <div style={{ fontSize: 10, color: theme.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {description}
       </div>

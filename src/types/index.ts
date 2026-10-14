@@ -52,6 +52,7 @@ export interface CanvasElement {
   src?: string;
   imageFit?: 'contain' | 'cover' | 'fill';
   aspectRatioLocked?: boolean;
+  autoSize?: boolean;
   originalWidth?: number;
   originalHeight?: number;
 }

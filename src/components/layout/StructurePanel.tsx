@@ -270,6 +270,7 @@ export const StructurePanel: React.FC<StructurePanelProps> = ({
                 gap: 6,
                 overflow: 'hidden',
                 flex: 1,
+                minWidth: 0,
               }}
             >
               <span

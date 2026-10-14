@@ -15,6 +15,12 @@ const LEGACY_WELCOME_KEY = 'wirecraft_welcome_completed_v1';
 const TUTORIAL_KEY = 'wirebrain_tutorial_progress_v1';
 const LEGACY_TUTORIAL_KEY = 'wirecraft_tutorial_progress_v1';
 
+const SIDEBAR_WIDTH_KEY = 'wirebrain_sidebar_width_v1';
+const LEGACY_SIDEBAR_WIDTH_KEY = 'wirecraft_sidebar_width_v1';
+
+const INSPECTOR_WIDTH_KEY = 'wirebrain_inspector_width_v1';
+const LEGACY_INSPECTOR_WIDTH_KEY = 'wirecraft_inspector_width_v1';
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -144,6 +150,49 @@ export function saveTutorialProgress(progress: Record<string, boolean>): void {
     localStorage.setItem(TUTORIAL_KEY, JSON.stringify(progress));
   } catch (err) {
     console.error('Failed to save tutorial progress:', err);
+  }
+}
+
+// Side panels width persistence
+export function loadSidebarWidth(defaultWidth = 270): number {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY) || localStorage.getItem(LEGACY_SIDEBAR_WIDTH_KEY);
+    if (raw) {
+      const val = parseInt(raw, 10);
+      if (!isNaN(val) && val >= 180 && val <= 600) {
+        return val;
+      }
+    }
+  } catch {}
+  return defaultWidth;
+}
+
+export function saveSidebarWidth(width: number): void {
+  try {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, width.toString());
+  } catch (err) {
+    console.error('Failed to save sidebar width:', err);
+  }
+}
+
+export function loadInspectorWidth(defaultWidth = 280): number {
+  try {
+    const raw = localStorage.getItem(INSPECTOR_WIDTH_KEY) || localStorage.getItem(LEGACY_INSPECTOR_WIDTH_KEY);
+    if (raw) {
+      const val = parseInt(raw, 10);
+      if (!isNaN(val) && val >= 200 && val <= 650) {
+        return val;
+      }
+    }
+  } catch {}
+  return defaultWidth;
+}
+
+export function saveInspectorWidth(width: number): void {
+  try {
+    localStorage.setItem(INSPECTOR_WIDTH_KEY, width.toString());
+  } catch (err) {
+    console.error('Failed to save inspector width:', err);
   }
 }
 

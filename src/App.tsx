@@ -23,14 +23,20 @@ import {
   setWelcomeCompleted,
   loadTutorialProgress,
   saveTutorialProgress,
+  loadSidebarWidth,
+  saveSidebarWidth,
+  loadInspectorWidth,
+  saveInspectorWidth,
 } from './utils/storage';
 import { exportBoardToSVG, exportBoardToPNG } from './utils/export';
 import { getBoundingBox } from './utils/geometry';
 import { getScenariosForBoard } from './utils/simulation';
+import { ensureElementFitsContent, calculateElementFitSize } from './utils/autoSize';
 import { themes } from './styles/theme';
 import { useHistory } from './hooks/useHistory';
 import { NavigationRail } from './components/layout/NavigationRail';
 import { Sidebar } from './components/layout/Sidebar';
+import { PanelResizeHandle } from './components/layout/PanelResizeHandle';
 import { TopToolbar } from './components/layout/TopToolbar';
 import { PropertiesInspector } from './components/layout/PropertiesInspector';
 import { Canvas } from './components/canvas/Canvas';
@@ -232,6 +238,80 @@ export const App: React.FC = () => {
     };
   }, [editorMode, isSimRunning, activeScenario, simSpeed]);
 
+  // Resizable Side Panel Widths (persisted to localStorage)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => loadSidebarWidth(270));
+  const [inspectorWidth, setInspectorWidth] = useState<number>(() => loadInspectorWidth(280));
+
+  // Sidebar resize callbacks
+  const handleResizeSidebar = useCallback(
+    (clientX: number) => {
+      const NAV_WIDTH = 54;
+      const MIN_CANVAS_WIDTH = 260;
+      const MIN_SIDEBAR_WIDTH = 200;
+      const MAX_SIDEBAR_WIDTH = 480;
+
+      const maxAllowed = Math.min(
+        MAX_SIDEBAR_WIDTH,
+        Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - NAV_WIDTH - MIN_CANVAS_WIDTH - inspectorWidth)
+      );
+      const targetW = Math.min(maxAllowed, Math.max(MIN_SIDEBAR_WIDTH, clientX - NAV_WIDTH));
+      setSidebarWidth(targetW);
+    },
+    [inspectorWidth]
+  );
+
+  const handleResizeSidebarEnd = useCallback(() => {
+    saveSidebarWidth(sidebarWidth);
+  }, [sidebarWidth]);
+
+  const handleResetSidebarWidth = useCallback(() => {
+    setSidebarWidth(270);
+    saveSidebarWidth(270);
+  }, []);
+
+  // Inspector resize callbacks
+  const handleResizeInspector = useCallback(
+    (clientX: number) => {
+      const NAV_WIDTH = 54;
+      const MIN_CANVAS_WIDTH = 260;
+      const MIN_INSPECTOR_WIDTH = 220;
+      const MAX_INSPECTOR_WIDTH = 520;
+
+      const maxAllowed = Math.min(
+        MAX_INSPECTOR_WIDTH,
+        Math.max(MIN_INSPECTOR_WIDTH, window.innerWidth - NAV_WIDTH - sidebarWidth - MIN_CANVAS_WIDTH)
+      );
+      const targetW = Math.min(maxAllowed, Math.max(MIN_INSPECTOR_WIDTH, window.innerWidth - clientX));
+      setInspectorWidth(targetW);
+    },
+    [sidebarWidth]
+  );
+
+  const handleResizeInspectorEnd = useCallback(() => {
+    saveInspectorWidth(inspectorWidth);
+  }, [inspectorWidth]);
+
+  const handleResetInspectorWidth = useCallback(() => {
+    setInspectorWidth(280);
+    saveInspectorWidth(280);
+  }, []);
+
+  // Ensure side panels don't compress canvas below minimum on window shrink
+  useEffect(() => {
+    const handleWindowResize = () => {
+      const totalAvail = window.innerWidth - 54 - 260;
+      if (sidebarWidth + inspectorWidth > totalAvail) {
+        const overflow = sidebarWidth + inspectorWidth - totalAvail;
+        if (overflow > 0) {
+          setSidebarWidth((prev) => Math.max(200, prev - Math.ceil(overflow / 2)));
+          setInspectorWidth((prev) => Math.max(220, prev - Math.ceil(overflow / 2)));
+        }
+      }
+    };
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [sidebarWidth, inspectorWidth]);
+
   // Fit to Content calculation
   const handleFitContent = useCallback(() => {
     if (currentElements.length === 0) {
@@ -240,7 +320,7 @@ export const App: React.FC = () => {
       return;
     }
     const bbox = getBoundingBox(currentElements);
-    const canvasWidth = window.innerWidth - 54 - 270 - 280;
+    const canvasWidth = window.innerWidth - 54 - sidebarWidth - inspectorWidth;
     const canvasHeight = window.innerHeight - 48;
 
     const pad = 80;
@@ -253,7 +333,7 @@ export const App: React.FC = () => {
 
     setZoom(newZoom);
     setPan({ x: newPanX, y: newPanY });
-  }, [currentElements]);
+  }, [currentElements, sidebarWidth, inspectorWidth]);
 
   // Mutate Elements
   const updateElements = useCallback(
@@ -269,11 +349,36 @@ export const App: React.FC = () => {
 
   const updateSingleElement = useCallback(
     (id: string, updates: Partial<CanvasElement>) => {
-      history.set((prev) => ({
-        ...prev,
-        elements: prev.elements.map((el) => (el.id === id ? { ...el, ...updates } : el)),
-        updatedAt: Date.now(),
-      }));
+      history.set((prev) => {
+        const target = prev.elements.find((el) => el.id === id);
+        if (!target) return prev;
+
+        let finalUpdates = { ...updates };
+        const hasTextChange =
+          updates.label !== undefined ||
+          updates.secondaryText !== undefined ||
+          updates.fontSize !== undefined ||
+          updates.fontWeight !== undefined;
+
+        // Auto-fit element size when text changes and no explicit width/height override
+        if (hasTextChange && updates.width === undefined && updates.height === undefined) {
+          const fit = ensureElementFitsContent(target, updates);
+          finalUpdates = {
+            ...finalUpdates,
+            width: fit.width,
+            height: fit.height,
+            autoSize: fit.autoSize,
+          };
+        }
+
+        return {
+          ...prev,
+          elements: prev.elements.map((el) =>
+            el.id === id ? { ...el, ...finalUpdates } : el
+          ),
+          updatedAt: Date.now(),
+        };
+      });
     },
     [history]
   );
@@ -534,15 +639,9 @@ export const App: React.FC = () => {
   const renameElement = useCallback(
     (id: string, newLabel: string) => {
       if (!newLabel.trim()) return;
-      history.set((prev) => ({
-        ...prev,
-        elements: prev.elements.map((el) =>
-          el.id === id ? { ...el, label: newLabel.trim() } : el
-        ),
-        updatedAt: Date.now(),
-      }));
+      updateSingleElement(id, { label: newLabel.trim() });
     },
-    [history]
+    [updateSingleElement]
   );
 
   // Reusable Components Handlers
@@ -1143,7 +1242,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Workspace Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         {/* Compact Navigation Rail */}
         <NavigationRail
           activeTab={activeSidebarTab}
@@ -1161,6 +1260,7 @@ export const App: React.FC = () => {
 
         {/* Sidebar Panel */}
         <Sidebar
+          width={sidebarWidth}
           activeTab={activeSidebarTab}
           boards={project.boards}
           activeBoardId={activeBoard.id}
@@ -1201,6 +1301,15 @@ export const App: React.FC = () => {
           onDeleteReusableComponent={handleDeleteReusableComponent}
         />
 
+        {/* Left Resizable Divider Handle */}
+        <PanelResizeHandle
+          side="left"
+          onResize={handleResizeSidebar}
+          onResizeEnd={handleResizeSidebarEnd}
+          onReset={handleResetSidebarWidth}
+          theme={theme}
+        />
+
         {/* Center Canvas */}
         <Canvas
           elements={currentElements}
@@ -1232,8 +1341,18 @@ export const App: React.FC = () => {
           tokenProgress={tokenProgress}
         />
 
+        {/* Right Resizable Divider Handle */}
+        <PanelResizeHandle
+          side="right"
+          onResize={handleResizeInspector}
+          onResizeEnd={handleResizeInspectorEnd}
+          onReset={handleResetInspectorWidth}
+          theme={theme}
+        />
+
         {/* Properties Inspector */}
         <PropertiesInspector
+          width={inspectorWidth}
           board={activeBoard}
           allBoards={project.boards}
           selectedElements={selectedElements}
