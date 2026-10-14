@@ -26,6 +26,9 @@ import {
   Code2,
   Play,
   Activity,
+  Server,
+  Workflow,
+  GitBranch,
 } from 'lucide-react';
 import { Board, ToolMode, EditorMode } from '../../types';
 import { ThemeColors } from '../../styles/theme';
@@ -133,6 +136,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
         <div ref={boardMenuRef} style={{ position: 'relative' }}>
           <button
             type="button"
+            data-testid="board-switcher-trigger"
             onClick={() => setBoardMenuOpen(!boardMenuOpen)}
             title={activeBoard ? `Active Board: ${activeBoard.title}` : 'Select Board'}
             style={{
@@ -217,6 +221,8 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
                   key={b.id}
                   type="button"
                   title={b.title}
+                  data-board-id={b.id}
+                  data-testid={`board-dropdown-item-${b.id}`}
                   onClick={() => {
                     onSelectBoard(b.id);
                     setBoardMenuOpen(false);
@@ -258,6 +264,8 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
                         <Layout size={14} />
                       ) : b.id.includes('mob') || b.boardType === 'mobile' ? (
                         <Smartphone size={14} />
+                      ) : b.id.includes('flow') || b.boardType === 'flowchart' ? (
+                        <Workflow size={14} />
                       ) : (
                         <Server size={14} />
                       )}
@@ -408,6 +416,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
         {/* Simulate Mode Action: Accessible on ALL boards */}
         <button
           type="button"
+          data-testid="toolbar-simulate-btn"
           onClick={() => onSetEditorMode(editorMode === 'simulate' ? 'edit' : 'simulate')}
           title={
             editorMode === 'simulate'
@@ -438,6 +447,7 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
         {isWireframeBoard && (
           <button
             type="button"
+            data-testid="toolbar-preview-btn"
             onClick={() => onSetEditorMode(editorMode === 'prototype' ? 'edit' : 'prototype')}
             title={
               editorMode === 'prototype'

@@ -39,6 +39,7 @@ import {
   Radio,
   FileCode,
   Package,
+  Workflow,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -205,6 +206,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <div
                   key={b.id}
+                  data-board-id={b.id}
+                  data-testid={`board-item-${b.id}`}
                   onClick={() => !isEditing && onSelectBoard(b.id)}
                   style={{
                     padding: '10px 12px',
@@ -240,10 +243,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', flex: 1, minWidth: 0 }}>
                         <span style={{ color: isActive ? theme.accent : theme.textMuted, flexShrink: 0 }}>
-                          {b.id.includes('web') ? (
+                          {b.id.includes('web') || b.boardType === 'website' ? (
                             <Layout size={15} />
-                          ) : b.id.includes('mob') ? (
+                          ) : b.id.includes('mob') || b.boardType === 'mobile' ? (
                             <Smartphone size={15} />
+                          ) : b.id.includes('flow') || b.boardType === 'flowchart' ? (
+                            <Workflow size={15} />
                           ) : (
                             <Server size={15} />
                           )}

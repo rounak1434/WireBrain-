@@ -40,6 +40,7 @@ import { PanelResizeHandle } from './components/layout/PanelResizeHandle';
 import { TopToolbar } from './components/layout/TopToolbar';
 import { PropertiesInspector } from './components/layout/PropertiesInspector';
 import { Canvas } from './components/canvas/Canvas';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ExportModal } from './components/modals/ExportModal';
 import { ShortcutsModal } from './components/modals/ShortcutsModal';
 import { WelcomeModal } from './components/modals/WelcomeModal';
@@ -1311,35 +1312,41 @@ export const App: React.FC = () => {
         />
 
         {/* Center Canvas */}
-        <Canvas
-          elements={currentElements}
-          connectors={currentConnectors}
-          selectedElementIds={selectedElementIds}
-          selectedConnectorId={selectedConnectorId}
-          toolMode={toolMode}
-          onSelectElements={(ids) => {
-            setSelectedElementIds(ids);
-            if (ids.length > 0) setSelectedConnectorId(null);
-          }}
-          onSelectConnector={(id) => {
-            setSelectedConnectorId(id);
-            if (id) setSelectedElementIds([]);
-          }}
-          onUpdateElements={updateElements}
-          onCreateConnector={createConnector}
-          onCreateElementAt={createElementAt}
-          onUpdateElementText={(id, text) => updateSingleElement(id, { label: text })}
-          zoom={zoom}
-          setZoom={setZoom}
-          pan={pan}
-          setPan={setPan}
-          snapToGrid={snapToGrid}
-          showGrid={showGrid}
-          theme={theme}
-          isSimulating={editorMode === 'simulate'}
-          activeSimulationStep={currentStep}
-          tokenProgress={tokenProgress}
-        />
+        <ErrorBoundary
+          inline
+          fallbackTitle="Canvas Diagram Notice"
+          onReset={() => handleSelectBoard(project.boards[0]?.id)}
+        >
+          <Canvas
+            elements={currentElements}
+            connectors={currentConnectors}
+            selectedElementIds={selectedElementIds}
+            selectedConnectorId={selectedConnectorId}
+            toolMode={toolMode}
+            onSelectElements={(ids) => {
+              setSelectedElementIds(ids);
+              if (ids.length > 0) setSelectedConnectorId(null);
+            }}
+            onSelectConnector={(id) => {
+              setSelectedConnectorId(id);
+              if (id) setSelectedElementIds([]);
+            }}
+            onUpdateElements={updateElements}
+            onCreateConnector={createConnector}
+            onCreateElementAt={createElementAt}
+            onUpdateElementText={(id, text) => updateSingleElement(id, { label: text })}
+            zoom={zoom}
+            setZoom={setZoom}
+            pan={pan}
+            setPan={setPan}
+            snapToGrid={snapToGrid}
+            showGrid={showGrid}
+            theme={theme}
+            isSimulating={editorMode === 'simulate'}
+            activeSimulationStep={currentStep}
+            tokenProgress={tokenProgress}
+          />
+        </ErrorBoundary>
 
         {/* Right Resizable Divider Handle */}
         <PanelResizeHandle
