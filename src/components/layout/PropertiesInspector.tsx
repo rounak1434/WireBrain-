@@ -9,7 +9,7 @@ import {
 } from '../../types';
 import { ThemeColors } from '../../styles/theme';
 import { importLocalImageFile } from '../../utils/assets';
-import { calculateElementFitSize, isFixedSizeElementType } from '../../utils/autoSize';
+import { calculateElementFitSize, calculateElementRequiredDimensions, isFixedSizeElementType } from '../../utils/autoSize';
 import {
   Trash2,
   Copy,
@@ -267,6 +267,13 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                         width: newW,
                         height: Math.max(10, Math.round(newW / ratio)),
                         autoSize: false,
+                      });
+                    } else if (single.autoSize !== false && !isFixedSizeElementType(single.type)) {
+                      const req = calculateElementRequiredDimensions(single, newW);
+                      onUpdateElement(single.id, {
+                        width: Math.max(newW, req.width),
+                        height: Math.max(single.height, req.height),
+                        autoSize: true,
                       });
                     } else {
                       onUpdateElement(single.id, { width: newW, autoSize: false });
@@ -792,6 +799,8 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                   single.type === 'cylinder' ||
                   single.type === 'cloud' ||
                   single.type === 'rectangle' ||
+                  single.type === 'diamond' ||
+                  single.type === 'ellipse' ||
                   single.type === 'queue') && (
                   <>
                     <label style={labelStyle(theme)}>Secondary Description</label>

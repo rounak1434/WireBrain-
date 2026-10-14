@@ -124,6 +124,30 @@ app.whenReady().then(async () => {
         details: sidebarSwitchStatus,
       });
 
+      // Step 6b: Verify Flowchart Node Text Sizing & No Text Overflow
+      const findBoxByText = (text) => {
+        const allSpans = Array.from(document.querySelectorAll('span, div'));
+        const span = allSpans.find((el) => el.textContent === text && !el.closest('aside') && !el.closest('header'));
+        return span?.closest('div[style*="border"]') || span?.closest('div[style*="position: relative"]');
+      };
+
+      const retryBox = findBoxByText('Request Supplementary Proof');
+      const retryNoOverflow = retryBox ? retryBox.scrollHeight <= retryBox.clientHeight : false;
+      const diamondBox = findBoxByText('ID Valid?');
+      const diamondNoOverflow = diamondBox ? diamondBox.scrollHeight <= diamondBox.clientHeight : false;
+      const ovalBox = findBoxByText('Awaiting Resubmission');
+      const ovalNoOverflow = ovalBox ? ovalBox.scrollHeight <= ovalBox.clientHeight : false;
+
+      results.steps.push({
+        name: 'Flowchart Node Text Sizing & No Overflow',
+        status: retryNoOverflow && diamondNoOverflow && ovalNoOverflow ? 'PASS' : 'FAIL',
+        details: {
+          retryFitted: retryNoOverflow,
+          diamondFitted: diamondNoOverflow,
+          ovalFitted: ovalNoOverflow,
+        },
+      });
+
       // Step 7: Enter Simulation mode on Flowchart via toolbar button
       const simulateBtn = document.querySelector('button[data-testid="toolbar-simulate-btn"]');
       simulateBtn?.click();

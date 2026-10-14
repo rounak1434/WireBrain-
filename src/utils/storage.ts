@@ -1,6 +1,7 @@
 import { Project, ThemeMode } from '../types';
 import { defaultProject } from '../data/starterBoards';
 import { getAllAssets, saveAllAssets } from './assets';
+import { ensureBoardElementsFit } from './autoSize';
 
 // Primary WireBrain keys with safe legacy fallback
 const STORAGE_KEY = 'wirebrain_project_v1';
@@ -77,9 +78,10 @@ export function loadProjectFromStorage(): Project {
         }
         return b;
       });
+      const fittedBoards = updatedBoards.map((b: any) => ensureBoardElementsFit(b));
       return {
         ...parsed,
-        boards: updatedBoards,
+        boards: fittedBoards,
         reusableComponents: parsed.reusableComponents || defaultProject.reusableComponents || [],
         designTokens: parsed.designTokens || defaultProject.designTokens,
       };

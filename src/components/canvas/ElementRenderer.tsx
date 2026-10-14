@@ -270,7 +270,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       {/* 4. Database Cylinder */}
       {type === 'cylinder' && (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+          <svg width="100%" height="100%" style={{ display: 'block' }} viewBox={`0 0 ${width} ${height}`}>
             {/* Body */}
             <path
               d={`M 0 16 L 0 ${height - 16} A ${width / 2} 16 0 0 0 ${width} ${height - 16} L ${width} 16 Z`}
@@ -407,7 +407,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       {/* 7. Decision Diamond */}
       {type === 'diamond' && (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+          <svg width="100%" height="100%" style={{ display: 'block' }} viewBox={`0 0 ${width} ${height}`}>
             <polygon
               points={`${width / 2},${strokeWidth / 2} ${width - strokeWidth / 2},${height / 2} ${width / 2},${height - strokeWidth / 2} ${strokeWidth / 2},${height / 2}`}
               fill={fillColor}

@@ -14,6 +14,7 @@ import { ResizeHandles, HandleDirection } from './ResizeHandles';
 import { AnchorPoints } from './AnchorPoints';
 import { snap, rectIntersectsRect, getAnchorPoint, getClosestAnchor, getPointAlongConnector } from '../../utils/geometry';
 import { importLocalImageFile } from '../../utils/assets';
+import { calculateElementRequiredDimensions, isFixedSizeElementType } from '../../utils/autoSize';
 
 interface CanvasProps {
   elements: CanvasElement[];
@@ -599,9 +600,21 @@ export const Canvas: React.FC<CanvasProps> = ({
       nextW = snap(nextW, gridSize, snapToGrid);
       nextH = snap(nextH, gridSize, snapToGrid);
 
+      let finalH = nextH;
+      let finalW = nextW;
+      let autoSizeVal = false;
+      if (initialResizeElement.autoSize !== false && !isFixedSizeElementType(initialResizeElement.type)) {
+        if (!resizeDir.includes('n') && !resizeDir.includes('s')) {
+          const req = calculateElementRequiredDimensions(initialResizeElement, nextW);
+          finalH = Math.max(nextH, req.height);
+          finalW = Math.max(nextW, req.width);
+          autoSizeVal = true;
+        }
+      }
+
       const updated = elements.map((el) =>
         el.id === initialResizeElement.id
-          ? { ...el, x: nextX, y: nextY, width: nextW, height: nextH, autoSize: false }
+          ? { ...el, x: nextX, y: nextY, width: finalW, height: finalH, autoSize: autoSizeVal }
           : el
       );
       onUpdateElements(updated);

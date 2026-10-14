@@ -31,7 +31,7 @@ import {
 import { exportBoardToSVG, exportBoardToPNG } from './utils/export';
 import { getBoundingBox } from './utils/geometry';
 import { getScenariosForBoard } from './utils/simulation';
-import { ensureElementFitsContent, calculateElementFitSize } from './utils/autoSize';
+import { ensureElementFitsContent, calculateElementFitSize, ensureBoardElementsFit } from './utils/autoSize';
 import { themes } from './styles/theme';
 import { useHistory } from './hooks/useHistory';
 import { NavigationRail } from './components/layout/NavigationRail';
@@ -64,7 +64,11 @@ export const App: React.FC = () => {
   };
 
   // Initialize project state from local persistence
-  const [project, setProject] = useState<Project>(() => loadProjectFromStorage());
+  const [project, setProject] = useState<Project>(() => {
+    const loaded = loadProjectFromStorage();
+    const fittedBoards = loaded.boards.map((b) => ensureBoardElementsFit(b));
+    return { ...loaded, boards: fittedBoards };
+  });
 
   // Active Board
   const activeBoard = useMemo(() => {
@@ -138,12 +142,14 @@ export const App: React.FC = () => {
     (boardId: string) => {
       const target = project.boards.find((b) => b.id === boardId);
       if (target) {
+        const fittedTarget = ensureBoardElementsFit(target);
         setProject((prev) => {
-          const next = { ...prev, activeBoardId: boardId };
+          const updatedBoards = prev.boards.map((b) => (b.id === boardId ? fittedTarget : b));
+          const next = { ...prev, boards: updatedBoards, activeBoardId: boardId };
           saveProjectToStorage(next);
           return next;
         });
-        history.reset(target);
+        history.reset(fittedTarget);
         setSelectedElementIds([]);
         setSelectedConnectorId(null);
 
@@ -991,16 +997,17 @@ export const App: React.FC = () => {
       } else {
         const clonedBoard: Board = JSON.parse(JSON.stringify(example.board));
         clonedBoard.updatedAt = Date.now();
+        const fittedBoard = ensureBoardElementsFit(clonedBoard);
         setProject((prev) => {
           const next = {
             ...prev,
-            boards: [...prev.boards, clonedBoard],
-            activeBoardId: clonedBoard.id,
+            boards: [...prev.boards, fittedBoard],
+            activeBoardId: fittedBoard.id,
           };
           saveProjectToStorage(next);
           return next;
         });
-        history.reset(clonedBoard);
+        history.reset(fittedBoard);
         setSelectedElementIds([]);
         setSelectedConnectorId(null);
       }
