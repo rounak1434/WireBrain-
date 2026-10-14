@@ -316,11 +316,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const world = screenToWorld(e.clientX, e.clientY);
 
-    if (
-      toolMode !== 'select' &&
-      toolMode !== 'pan' &&
-      toolMode !== 'connector'
-    ) {
+    if (toolMode !== 'select' && toolMode !== 'connector') {
       const snappedX = snap(world.x, gridSize, snapToGrid);
       const snappedY = snap(world.y, gridSize, snapToGrid);
       onCreateElementAt(toolMode as ElementType, snappedX, snappedY);

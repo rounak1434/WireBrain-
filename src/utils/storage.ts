@@ -200,7 +200,7 @@ export async function exportProjectToFile(project: Project): Promise<boolean> {
   let projectWithAssets: Project = { ...project };
   try {
     const allAssets = await getAllAssets();
-    if (allAssets.length > 0) {
+    if (allAssets && Object.keys(allAssets).length > 0) {
       projectWithAssets.assets = allAssets;
     }
   } catch (err) {
@@ -250,8 +250,14 @@ export async function importProjectFromFile(): Promise<Project | null> {
       if (openRes && openRes.content) {
         const parsed = JSON.parse(openRes.content);
         if (parsed && Array.isArray(parsed.boards)) {
-          if (parsed.assets && Array.isArray(parsed.assets)) {
-            await saveAllAssets(parsed.assets);
+          if (parsed.assets) {
+            if (Array.isArray(parsed.assets)) {
+              const map: Record<string, any> = {};
+              parsed.assets.forEach((a: any) => { if (a && a.id) map[a.id] = a; });
+              await saveAllAssets(map);
+            } else if (typeof parsed.assets === 'object') {
+              await saveAllAssets(parsed.assets);
+            }
           }
           return parsed;
         }
@@ -278,8 +284,14 @@ export async function importProjectFromFile(): Promise<Project | null> {
         try {
           const parsed = JSON.parse(re.target?.result as string);
           if (parsed && Array.isArray(parsed.boards)) {
-            if (parsed.assets && Array.isArray(parsed.assets)) {
-              await saveAllAssets(parsed.assets);
+            if (parsed.assets) {
+              if (Array.isArray(parsed.assets)) {
+                const map: Record<string, any> = {};
+                parsed.assets.forEach((a: any) => { if (a && a.id) map[a.id] = a; });
+                await saveAllAssets(map);
+              } else if (typeof parsed.assets === 'object') {
+                await saveAllAssets(parsed.assets);
+              }
             }
             resolve(parsed);
           } else {

@@ -85,6 +85,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<Layers size={19} />}
           label="Boards Manager"
+          testId="rail-tab-boards"
           isActive={activeTab === 'boards'}
           onClick={() => onTabChange('boards')}
           theme={theme}
@@ -92,6 +93,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<Shapes size={19} />}
           label="Elements Library"
+          testId="rail-tab-elements"
           isActive={activeTab === 'elements'}
           onClick={() => onTabChange('elements')}
           theme={theme}
@@ -99,6 +101,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<ListTree size={19} />}
           label="Layers Hierarchy"
+          testId="rail-tab-layers"
           isActive={activeTab === 'layers'}
           onClick={() => onTabChange('layers')}
           theme={theme}
@@ -106,6 +109,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<Sparkles size={19} />}
           label="Example Projects"
+          testId="rail-tab-examples"
           isActive={activeTab === 'examples'}
           onClick={() => onTabChange('examples')}
           theme={theme}
@@ -113,6 +117,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<GraduationCap size={19} />}
           label="Tutorial & Guides"
+          testId="rail-tab-tutorial"
           isActive={activeTab === 'tutorial'}
           onClick={() => onTabChange('tutorial')}
           theme={theme}
@@ -120,6 +125,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <RailButton
           icon={<Keyboard size={19} />}
           label="Shortcuts Guide"
+          testId="rail-tab-shortcuts"
           isActive={activeTab === 'shortcuts'}
           onClick={() => onTabChange('shortcuts')}
           theme={theme}
@@ -174,12 +180,14 @@ interface RailButtonProps {
   isActive?: boolean;
   onClick: () => void;
   theme: ThemeColors;
+  testId?: string;
 }
 
-const RailButton: React.FC<RailButtonProps> = ({ icon, label, isActive, onClick, theme }) => {
+const RailButton: React.FC<RailButtonProps> = ({ icon, label, isActive, onClick, theme, testId }) => {
   return (
     <button
       type="button"
+      data-testid={testId}
       title={label}
       aria-label={label}
       onClick={onClick}

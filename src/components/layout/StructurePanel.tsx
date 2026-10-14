@@ -381,7 +381,7 @@ export const StructurePanel: React.FC<StructurePanelProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            backgroundColor: theme.inputBg,
+            backgroundColor: theme.surfaceBg,
             borderRadius: 6,
             border: `1px solid ${theme.borderSubtle}`,
             padding: '4px 8px',

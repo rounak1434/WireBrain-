@@ -62,6 +62,7 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
   if (totalSteps === 0 || !activeScenario || activeScenario.steps.length === 0) {
     return (
       <div
+        data-testid="simulation-empty-state-bar"
         style={{
           position: 'absolute',
           top: 60,
@@ -183,6 +184,7 @@ export const SimulationController: React.FC<SimulationControllerProps> = ({
 
   return (
     <div
+      data-testid="simulation-controller-bar"
       style={{
         position: 'absolute',
         top: 60,

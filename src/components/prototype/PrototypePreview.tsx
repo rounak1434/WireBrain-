@@ -220,9 +220,9 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
 
     // Modal check
     const sourceEl = displayedBoard.elements.find((e) => e.id === currentStep.sourceNodeId);
-    if (sourceEl?.prototypeAction === 'modal') {
-      setActiveOverlay(sourceEl.prototypePayload || 'Interactive Sheet');
-    } else if (!sourceEl || sourceEl.prototypeAction !== 'modal') {
+    if ((sourceEl?.prototypeAction as string) === 'modal') {
+      setActiveOverlay(sourceEl?.prototypePayload || 'Interactive Sheet');
+    } else {
       setActiveOverlay(null);
     }
   }, [currentStep, frames, displayedBoard.elements]);
@@ -412,6 +412,9 @@ export const PrototypePreview: React.FC<PrototypePreviewProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-label="Interactive Prototype Simulation Preview"
+      data-testid="prototype-preview-modal"
       style={{
         position: 'fixed',
         inset: 0,

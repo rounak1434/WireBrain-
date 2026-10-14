@@ -6,7 +6,7 @@ interface ConnectorRendererProps {
   connector: Connector;
   elementsById: Map<string, CanvasElement>;
   isSelected: boolean;
-  onSelect: (e: React.MouseEvent) => void;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
@@ -43,9 +43,9 @@ export const ConnectorRenderer: React.FC<ConnectorRendererProps> = ({
       className="connector-group"
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(e);
+        onSelect?.(e);
       }}
-      style={{ cursor: 'pointer', pointerEvents: 'all' }}
+      style={{ cursor: onSelect ? 'pointer' : 'default', pointerEvents: onSelect ? 'all' : 'none' }}
     >
       {/* Invisible wider hit area for easy clicking */}
       <path

@@ -500,7 +500,7 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                       fontSize: 12,
                       backgroundColor: theme.surfaceBg,
                       border: `1px solid ${theme.borderSubtle}`,
-                      color: theme.textMain,
+                      color: theme.textPrimary,
                       outline: 'none',
                     }}
                   >
@@ -968,7 +968,7 @@ export const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({
                           border: single.fillColor === color ? `1px solid ${theme.accent}` : `1px solid ${theme.borderSubtle}`,
                           borderRadius: 4,
                           fontSize: 10,
-                          color: theme.textMain,
+                          color: theme.textPrimary,
                           cursor: 'pointer',
                         }}
                       >
